@@ -16,11 +16,12 @@ def portfolio_process(port_queue):
 
 if __name__ == '__main__':
     st = [Strategy_1, Strategy_2]
+    initial_cap = 1000000
+    total_symbol_list = ["005930", "096530"]
 
     # market event를 push받기 위한 data_queue
     d_q = [Queue() for _ in range(len(st))]
     p_q = Queue() # port_queue
-    
     pr = []
     for i in range(len(st)):
         p = Process(target=strategy_process, args=(st[i], d_q[i], p_q))
@@ -32,5 +33,5 @@ if __name__ == '__main__':
     dh = DataHandler(data_queues=d_q, port_queue=p_q)
     
     # Portfolio 프로세스 실행
-    p = Process(target=portfolio_process, args=(p_q,))
+    p = Process(target=portfolio_process, args=(p_q, initial_cap, total_symbol_list,))
     p.start()

@@ -1,0 +1,2 @@
+from strategies.strategy_1 import Strategy_1
+from strategies.strategy_2 import Strategy_2

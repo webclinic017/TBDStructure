@@ -24,10 +24,10 @@ if __name__ == '__main__':
     p_q = Queue() # port_queue
     pr = []
     for i in range(len(st)):
-        p = Process(target=strategy_process, args=(st[i], d_q[i], p_q))
-        pr.append(p)
+        s_p = Process(target=strategy_process, args=(st[i], d_q[i], p_q))
+        pr.append(s_p)
     
-    _ = [p.start() for p in pr] # 프로세스 모두 실행
+    _ = [s_p.start() for s_p in pr] # 프로세스 모두 실행
 
     # Data Handler를 메인 프로세스에서 실행
     dh = DataHandler(data_queues=d_q, port_queue=p_q)

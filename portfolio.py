@@ -1,9 +1,11 @@
 from execution import ExecutionHandler
+from bar import Bar
 import datetime
 import pandas as pd
 
 
-class Portfolio:
+class Portfolio(Bar):
+
     def __init__(self, port_queue, initial_cap, symbol_list):
         print('Portfolio started')
         self.port_queue = port_queue
@@ -57,41 +59,6 @@ class Portfolio:
         return d  # bracket 없는 것만 construct_all_holdings() 와 다름
 
         # live trading에서는 Brokerage에서 바로 요청 후 반영가능! backtesting은 계산 필요.
-
-    def get_latest_bar(self, symbol):
-        """
-        returns latest bar updated
-        """
-        raise NotImplementedError("Should implement get_latest_bar()")
-
-    def get_latest_n_bars(self, symbol, N=1):
-        """
-        :param N: Number of wanted bars
-        :return: the last N bars updated
-        """
-        raise NotImplementedError("Should implement get_latest_n_bars()")
-
-    def get_latest_bar_datetime(self, symbol):
-        """
-        :return: a Python datetime object for the last bar
-        """
-        raise NotImplementedError("Should implement get_latest_bar_datetime()")
-
-    def get_latest_bar_value(self, symbol, val_type):
-        """
-        :param val_type: one of OHLCV, Quotes, Open Interest(OI)
-        :return: returns one of values designated by val_type
-        """
-        raise NotImplementedError("Should implement get_latest_bar_value()")
-
-    def get_latest_n_bars_value(self, symbol, val_type, N=1):
-        """
-        :param symbol:
-        :param val_type: one of OHLCV, Quotes, Open Interest(OI)
-        :param N: Number of bars considered
-        :return: returns one of N-bars values designated by val_type
-        """
-        raise NotImplementedError("Should implement get_latest_n_bars_value()")
 
     def update_timeindex(self, event):
         """

@@ -7,6 +7,10 @@ class DataHandler:
         source: csv, kiwoom, ebest, binance etc.
         """
         print('Data Handler started')
+
+        # source마다 들어오는 데이터가 다를 수 있기 때문에 소스 구분을 확실히 한다.
+        self.source = source
+
         self.queues = data_queues + [port_queue]
         self.api_queue = api_queue
 
@@ -22,3 +26,9 @@ class DataHandler:
 
         for q in self.queues:
             q.put(m_e)
+
+    def start_event_loop(self):
+        while True:
+            data = self.api_queue.get()
+
+            # data handle

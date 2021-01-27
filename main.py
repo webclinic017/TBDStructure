@@ -12,8 +12,12 @@ def strategy_process(strategy_cls, data_queue, port_queue):
     s = strategy_cls(data_queue, port_queue)
     s.calc_signals()
 
-def data_handler_process(data_queues, port_queue):
-    dh = DataHandler(data_queues=data_queues, port_queue=port_queue)
+def data_handler_process(source, data_queues, port_queue, api_queue):
+    dh = DataHandler(
+        data_queues=data_queues,
+        port_queue=port_queue,
+        api_queue=api_queue,
+        source=source)
 
 def portfolio_process(port_queue):
     # Portfolio + Execution
@@ -28,6 +32,8 @@ def main(source, api_queue, port_queue):
 
 
 if __name__ == '__main__':
+    source = 'kiwoom'
+
     st = [Strategy_1, Strategy_2]
 
     # market event를 push받기 위한 data_queue
@@ -43,7 +49,7 @@ if __name__ == '__main__':
     _ = [p.start() for p in pr] # 프로세스 모두 실행
 
     # Data Handler를 프로세스 실행
-    dp = Process(target=data_handler_process, args=(d_q, p_q))
+    dp = Process(target=data_handler_process, args=(source, d_q, p_q, a_q))
     dp.start()
     
     # Portfolio 프로세스 실행
@@ -51,4 +57,4 @@ if __name__ == '__main__':
     pp.start()
     
     # Main 프로세스 키움/이베스트/바이낸스 API 실행
-    main(source='kiwoom', api_queue=a_q, port_queue=p_q)
+    main(source=source, api_queue=a_q, port_queue=p_q)

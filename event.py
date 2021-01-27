@@ -2,9 +2,10 @@ class Event(object):
     pass
 
 class MarketEvent(Event):
-    def __init__(self, symbol, current_price, open_price, high_price, low_price, cum_volume):
+    def __init__(self, symbol, date, current_price, open_price, high_price, low_price, cum_volume):
         self.type = 'MARKET'
         self.symbol = symbol
+        self.date = date
         self.current_price = current_price
         self.open_price = open_price
         self.high_price = high_price

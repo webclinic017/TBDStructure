@@ -4,9 +4,10 @@ import pandas as pd
 
 
 class Portfolio:
-    def __init__(self, port_queue, initial_cap, symbol_list):
+    def __init__(self, port_queue, order_queue, initial_cap, symbol_list):
         print('Portfolio started')
         self.port_queue = port_queue
+        self.order_queue = order_queue
 
         self.execution_handler = ExecutionHandler(port_queue=port_queue)
 

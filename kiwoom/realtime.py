@@ -1,20 +1,19 @@
-import gc, os, sys, csv
-import pandas as pd
-
-from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot
-from PyQt5.QtTest import QTest
+import datetime
+import gc, os, sys
 from PyQt5.QtWidgets import QApplication
 
 from base import KiwoomBaseAPI
-from errcode import *
-from realtype import *
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 
 class KiwoomRealtimeAPI(KiwoomBaseAPI):
-    def __init__(self):
+
+    def __init__(self, api_queue, port_queue):
         super().__init__()
+
+        self.api_queue = api_queue
+        self.port_queue = port_queue
 
         self.get_account_num()
         self.get_account_info()
@@ -68,20 +67,20 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
         deposit = self.get_comm_data(trcode, rqname, 0, '예수금')
         self.deposit = int(deposit)
         self.round_bet_amount = int(deposit) // 5
-        log_txt = '예수금: {}, 1차 투자 금액: {}'.format(self.deposit, self.round_bet_amount)
+        print('예수금: {}, 1차 투자 금액: {}'.format(self.deposit, self.round_bet_amount))
 
         available_deposit = self.get_comm_data(trcode, rqname, 0, '출금가능금액')
         available_deposit = int(available_deposit)
-        log_txt = '출금가능금액: {}'.format(available_deposit)
+        print('출금가능금액: {}'.format(available_deposit))
 
     def opw00018(self, rqname, trcode, prev_next):
         total_buy_amount = self.get_comm_data(trcode, rqname, 0, '총매입금액')
         total_buy_amount_result = int(total_buy_amount)
-        log_txt = "총매입금액 : %s" % total_buy_amount_result
+        print("총매입금액 : %s" % total_buy_amount_result)
 
         total_return = self.get_comm_data(trcode, rqname, 0, '총수익률(%)')
         total_return_result = float(total_return)
-        log_txt = "총수익률(%%) : %s" % total_return_result
+        print("총수익률(%%) : %s" % total_return_result)
 
         rows = self.get_repeat_cnt(trcode, rqname)
 
@@ -259,30 +258,36 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             print(log_txt)
 
         elif (real_type == "주식체결") | (real_type == "선물시세"):
-            if self.stop_realtime_switch != 1:
-                trade_time = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["체결시간"])
-                trade_p = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["현재가"])
-                sell_price = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["(최우선)매도호가"])
-                buy_price = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["(최우선)매수호가"])
-                volume = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["누적거래량"])
-                high_p = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["고가"])
-                open_p = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["시가"])
-                low_p = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["저가"])
+            trade_date = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["체결시간"])
+            current_price = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["현재가"])
+            open_price = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["시가"])
+            high = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["고가"])
+            low = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["저가"])
+            volume = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["거래량"])
+            cum_volume = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["누적거래량"])
+            sell_price = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["(최우선)매도호가"])
+            buy_price = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["(최우선)매수호가"])
 
-                trade_p = abs(int(trade_p))
-                sell_price = abs(int(sell_price))
-                buy_price = abs(int(buy_price))
-                volume = abs(int(volume))
-                high_p = abs(int(high_p))
-                open_p = abs(int(open_p))
-                low_p = abs(int(low_p))
+            tick_data = {
+                'code': code.strip(),
+                'trade_date': str(trade_date),
+                'timestamp': datetime.datetime.now().strftime("%Y%m%d%H%M%S.%f")[:-3],
+                'current_price': abs(int(current_price)),
+                'open_price': abs(int(open_price)),
+                'high': abs(int(high)),
+                'low': abs(int(low)),
+                'volume': abs(int(volume)),
+                'cum_volume': abs(int(cum_volume)),
+                'sell_price': abs(int(sell_price)),
+                'buy_price': abs(int(buy_price))
+            }
 
-                # update_data (data handler로 데이터 보내주기)
+            # update_data (data handler로 데이터 보내주기)
 
         elif (real_type == "주식호가잔량") | (real_type == "주식선물호가잔량") | (real_type == "선물호가잔량"):
             hoga_date = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["호가시간"])
 
-            processor = int if code in self.stocks_code else float
+            processor = int if code in self.total_stocks_list else float
 
             #### 매도호가
             sell_hoga1 = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["매도호가1"])
@@ -380,11 +385,62 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
                 ratio_buy_hoga_stack = None
                 ratio_sell_hoga_stack = None
 
+            hoga_data = {
+                'hoga_date': abs(processor(hoga_date)),
+                'sell_hoga1': abs(processor(sell_hoga1)),
+                'sell_hoga2': abs(processor(sell_hoga2)),
+                'sell_hoga3': abs(processor(sell_hoga3)),
+                'sell_hoga4': abs(processor(sell_hoga4)),
+                'sell_hoga5': abs(processor(sell_hoga5)),
+                'sell_hoga6': abs(processor(sell_hoga6)) if sell_hoga6 is not None else sell_hoga6,
+                'sell_hoga7': abs(processor(sell_hoga7)) if sell_hoga7 is not None else sell_hoga7,
+                'sell_hoga8': abs(processor(sell_hoga8)) if sell_hoga8 is not None else sell_hoga8,
+                'sell_hoga9': abs(processor(sell_hoga9)) if sell_hoga9 is not None else sell_hoga9,
+                'sell_hoga10': abs(processor(sell_hoga10)) if sell_hoga10 is not None else sell_hoga10,
+                'buy_hoga1': abs(processor(buy_hoga1)),
+                'buy_hoga2': abs(processor(buy_hoga2)),
+                'buy_hoga3': abs(processor(buy_hoga3)),
+                'buy_hoga4': abs(processor(buy_hoga4)),
+                'buy_hoga5': abs(processor(buy_hoga5)),
+                'buy_hoga6': abs(processor(buy_hoga6)) if buy_hoga6 is not None else buy_hoga6,
+                'buy_hoga7': abs(processor(buy_hoga7)) if buy_hoga7 is not None else buy_hoga7,
+                'buy_hoga8': abs(processor(buy_hoga8)) if buy_hoga8 is not None else buy_hoga8,
+                'buy_hoga9': abs(processor(buy_hoga9)) if buy_hoga9 is not None else buy_hoga9,
+                'buy_hoga10': abs(processor(buy_hoga10)) if buy_hoga10 is not None else buy_hoga10,
+                'sell_hoga1_stack': abs(processor(sell_hoga1_stack)),
+                'sell_hoga2_stack': abs(processor(sell_hoga2_stack)),
+                'sell_hoga3_stack': abs(processor(sell_hoga3_stack)),
+                'sell_hoga4_stack': abs(processor(sell_hoga4_stack)),
+                'sell_hoga5_stack': abs(processor(sell_hoga5_stack)),
+                'sell_hoga6_stack': abs(processor(sell_hoga6_stack)) if sell_hoga6_stack is not None else sell_hoga6_stack,
+                'sell_hoga7_stack': abs(processor(sell_hoga7_stack)) if sell_hoga7_stack is not None else sell_hoga7_stack,
+                'sell_hoga8_stack': abs(processor(sell_hoga8_stack)) if sell_hoga8_stack is not None else sell_hoga8_stack,
+                'sell_hoga9_stack': abs(processor(sell_hoga9_stack)) if sell_hoga9_stack is not None else sell_hoga9_stack,
+                'sell_hoga10_stack': abs(processor(sell_hoga10_stack)) if sell_hoga10_stack is not None else sell_hoga10_stack,
+                'buy_hoga1_stack': abs(processor(buy_hoga1_stack)),
+                'buy_hoga2_stack': abs(processor(buy_hoga2_stack)),
+                'buy_hoga3_stack': abs(processor(buy_hoga3_stack)),
+                'buy_hoga4_stack': abs(processor(buy_hoga4_stack)),
+                'buy_hoga5_stack': abs(processor(buy_hoga5_stack)),
+                'buy_hoga6_stack': abs(processor(buy_hoga6_stack)) if buy_hoga6_stack is not None else buy_hoga6_stack,
+                'buy_hoga7_stack': abs(processor(buy_hoga7_stack)) if buy_hoga7_stack is not None else buy_hoga7_stack,
+                'buy_hoga8_stack': abs(processor(buy_hoga8_stack)) if buy_hoga8_stack is not None else buy_hoga8_stack,
+                'buy_hoga9_stack': abs(processor(buy_hoga9_stack)) if buy_hoga9_stack is not None else buy_hoga9_stack,
+                'buy_hoga10_stack': abs(processor(buy_hoga10_stack)) if buy_hoga10_stack is not None else buy_hoga10_stack,
+                'total_buy_hoga_stack': abs(int(total_buy_hoga_stack)),
+                'total_sell_hoga_stack': abs(int(total_sell_hoga_stack)),
+                'net_buy_hoga_stack': abs(int(net_buy_hoga_stack)),
+                'net_sell_hoga_stack': abs(int(net_sell_hoga_stack)),
+                'ratio_buy_hoga_stack': abs(float(ratio_buy_hoga_stack)),
+                'ratio_sell_hoga_stack': abs(float(ratio_sell_hoga_stack))
+            }
+
+            # update_data (data handler로 데이터 보내주기)
+
     def receive_chejan_data(self, gubun, item_cnt, fid_list):
 
         if int(gubun) == 0:
-            print("주문체결")
-
+            # 주문체결
             account_num = self.get_chegan_data(self.realType.REALTYPE["주문체결"]["계좌번호"])
             code = self.get_chegan_data(self.realType.REALTYPE["주문체결"]["종목코드"])[1:]
             stock_name = self.get_chegan_data(self.realType.REALTYPE["주문체결"]["종목명"])
@@ -402,45 +458,29 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             first_sell_price = self.get_chegan_data(self.realType.REALTYPE["주문체결"]["(최우선)매도호가"])
             first_buy_price = self.get_chegan_data(self.realType.REALTYPE["주문체결"]["(최우선)매수호가"])
 
-            stock_name = stock_name.strip()
-            order_quan = int(order_quan)
-            order_price = int(order_price)
-            not_chegual_quan = int(not_chegual_quan)
-            order_gubun = order_gubun.strip().lstrip("+").lstrip("-")
-            chegual_price = int(chegual_price) if chegual_price != '' else 0
-            chegual_quantity = int(chegual_quantity) if chegual_quantity != '' else 0
-            current_price = abs(int(current_price))
-            first_sell_price = abs(int(first_sell_price))
-            first_buy_price = abs(int(first_buy_price))
+            che_data = {
+                'account_num': account_num,
+                'code': code,
+                'stock_name': stock_name.strip(),
+                'origin_order_number': origin_order_number,
+                'order_number': order_number,
+                'order_status': order_status,
+                'order_quan': int(order_quan),
+                'order_price': int(order_price),
+                'not_chegual_quan': int(not_chegual_quan),
+                'order_gubun': order_gubun.strip().lstrip("+").lstrip("-"),
+                'chegual_time_str': chegual_time_str,
+                'chegual_price': int(chegual_price) if chegual_price != '' else 0,
+                'chegual_quantity': int(chegual_quantity) if chegual_quantity != '' else 0,
+                'current_price': abs(int(current_price)),
+                'first_sell_price': abs(int(first_sell_price)),
+                'first_buy_price': abs(int(first_buy_price))
+            }
 
-            if order_number not in self.remaining_orders.keys():
-                self.remaining_orders.update({order_number: {}})
-
-            self.remaining_orders[order_number].update({"종목코드": code})
-            self.remaining_orders[order_number].update({"주문번호": order_number})
-            self.remaining_orders[order_number].update({"종목명": stock_name})
-            self.remaining_orders[order_number].update({"주문상태": order_status})
-            self.remaining_orders[order_number].update({"주문수량": order_quan})
-            self.remaining_orders[order_number].update({"주문가격": order_price})
-            self.remaining_orders[order_number].update({"미체결수량": not_chegual_quan})
-            self.remaining_orders[order_number].update({"원주문번호": origin_order_number})
-            self.remaining_orders[order_number].update({"주문구분": order_gubun})
-            self.remaining_orders[order_number].update({"주문/체결시간": chegual_time_str})
-            self.remaining_orders[order_number].update({"체결가": chegual_price})
-            self.remaining_orders[order_number].update({"체결량": chegual_quantity})
-            self.remaining_orders[order_number].update({"현재가": current_price})
-            self.remaining_orders[order_number].update({"(최우선)매도호가": first_sell_price})
-            self.remaining_orders[order_number].update({"(최우선)매수호가": first_buy_price})
-
-            print(self.remaining_orders[order_number])
-            # params: 종목코드, 주문번호, 원주문번호, 주문/체결시간, 주문구분, 체결량, 체결가, 미체결수량
-            self.process_order(code, order_number, origin_order_number, chegual_time_str, order_gubun, chegual_quantity,
-                               chegual_price, not_chegual_quan)
-            gc.collect()
+            # update_data (portfolio로 데이터 보내주기)
 
         elif int(gubun) == 1:
-            print("잔고")
-
+            # 잔고
             account_num = self.get_chegan_data(self.realType.REALTYPE['잔고']['계좌번호'])
             code = self.get_chegan_data(self.realType.REALTYPE['잔고']['종목코드'])[1:]
             stock_name = self.get_chegan_data(self.realType.REALTYPE['잔고']['종목명'])
@@ -453,39 +493,21 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             first_sell_price = self.get_chegan_data(self.realType.REALTYPE['잔고']['(최우선)매도호가'])
             first_buy_price = self.get_chegan_data(self.realType.REALTYPE['잔고']['(최우선)매수호가'])
 
-            stock_name = stock_name.strip()
-            current_price = abs(int(current_price))
-            stock_quan = int(stock_quan)
-            avail_quan = int(avail_quan)
-            buy_price = abs(int(buy_price))
-            total_buy_price = int(total_buy_price)
-            meme_gubun = self.realType.REALTYPE["매도수구분"][meme_gubun]
-            first_sell_price = abs(int(first_sell_price))
-            first_buy_price = abs(int(first_buy_price))
+            jan_data = {
+                'account_num': account_num,
+                'code': code,
+                'stock_name': stock_name.strip(),
+                'current_price': abs(int(current_price)),
+                'stock_quan': int(stock_quan),
+                'avail_quan': int(avail_quan),
+                'buy_price': abs(int(buy_price)),
+                'total_buy_price': int(total_buy_price),
+                'meme_gubun': self.realType.REALTYPE["매도수구분"][meme_gubun],
+                'first_sell_price': abs(int(first_sell_price)),
+                'first_buy_price': abs(int(first_buy_price))
+            }
 
-            if code not in self.monitor_portfolio_stocks.keys():
-                self.monitor_portfolio_stocks.update({code: {}})
-
-            self.monitor_portfolio_stocks[code].update({"현재가": current_price})
-            self.monitor_portfolio_stocks[code].update({"종목코드": code})
-            self.monitor_portfolio_stocks[code].update({"종목명": stock_name})
-            self.monitor_portfolio_stocks[code].update({"보유수량": stock_quan})
-            self.monitor_portfolio_stocks[code].update({"주문가능수량": avail_quan})
-            self.monitor_portfolio_stocks[code].update({"매입단가": buy_price})
-            self.monitor_portfolio_stocks[code].update({"총매입가": total_buy_price})
-            self.monitor_portfolio_stocks[code].update({"매도매수구분": meme_gubun})
-            self.monitor_portfolio_stocks[code].update({"(최우선)매도호가": first_sell_price})
-            self.monitor_portfolio_stocks[code].update({"(최우선)매수호가": first_buy_price})
-
-            print(self.monitor_portfolio_stocks[code])
-            gc.collect()
-
-    def buysell_scenario(self, code, trade_p, sell_price):
-        pass
-
-    def process_order(self, code, order_number, origin_order_number, chegual_time_str, order_gubun, chegual_quantity,
-                      chegual_price, not_chegual_quan):
-        pass
+            # update_data (portfolio로 데이터 보내주기)
 
 
 if __name__ == '__main__':

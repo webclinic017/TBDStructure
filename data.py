@@ -2,12 +2,13 @@ from event import MarketEvent
 
 
 class DataHandler:
-    def __init__(self, data_queues, port_queue, source: str = 'csv'):
+    def __init__(self, data_queues, port_queue, api_queue, source: str = 'csv'):
         """
         source: csv, kiwoom, ebest, binance etc.
         """
         print('Data Handler started')
         self.queues = data_queues + [port_queue]
+        self.api_queue = api_queue
 
     def update_bars(self):
         m_e = MarketEvent(

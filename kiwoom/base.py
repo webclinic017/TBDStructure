@@ -7,7 +7,6 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from errcode import *
 from realtype import *
-from const import *
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -46,6 +45,12 @@ class KiwoomBaseAPI(QMainWindow):
         self.port_state = ''
 
         self.today_date = datetime.datetime.now().strftime('%Y%m%d')
+
+        # 전종목 코드 정보
+        self.total_stocks_list = self.get_code_list_by_market('0') + self.get_code_list_by_market('10')
+        self.total_futures_list = self.get_futures_code_list('') + self.get_futures_index_list()
+        self.stocks_futures_code = self.total_stocks_list + self.total_futures_list
+
         self.monitor_stocks_list = []
         self.monitor_stocks_data = {}
 
@@ -53,7 +58,8 @@ class KiwoomBaseAPI(QMainWindow):
         self.get_monitor_stocks_list()
 
     def get_monitor_stocks_list(self):
-        codelist = GET_MONITORSTOCKS()
+        # TODO: DB에서 모너터링 종목 가져오기
+        codelist = []
         self.monitor_stocks_list = [code.strip() for code in codelist] + ['001']
 
     def create_kiwoom_ocx_instance(self):
@@ -177,8 +183,59 @@ class KiwoomBaseAPI(QMainWindow):
         self.set_input_value("업종코드", code)
         self.comm_rq_data("업종일봉차트조회", "opt20006", prev_next, '2004')
 
-    def exit_program(self):
-        sys.exit()
+    def get_code_list_by_market(self, market_code):
+        code_list = self.kiwoom.dynamicCall('GetCodeListByMarket(QString)', market_code)
+        return code_list.split(";")[:-1]
+
+    def get_futures_code_list(self, blank):
+        stock_futures_code_list = self.dynamicCall('GetSFutureList(Qstring, int)', blank)
+        stock_futures_code_list = stock_futures_code_list.split('|')
+        stock_futures_code_list = list(map(lambda x: x.split('^')[0], stock_futures_code_list))
+
+        fu_code_ls = list(set(map(lambda x: x[1:3], stock_futures_code_list)))[1:] # "" 공백 원소 건너뛰기
+
+        total_fu_code = []
+        for fu_code in fu_code_ls:
+            tmp = []
+            for i in range(len(stock_futures_code_list)):
+                fu_code_i = stock_futures_code_list[i][1:3]
+                if fu_code_i == fu_code:
+                    tmp.append(stock_futures_code_list[i])
+                else:
+                    pass
+            total_fu_code.append(tmp)
+
+        total_fu_code = list(map(lambda x: x[:3], total_fu_code)) # 더 원월물까지 포함하고 싶으면 3을 바꾸면됨
+
+        flatten_fu_code = []
+        for fu_code in total_fu_code:
+            flatten_fu_code = flatten_fu_code + fu_code
+
+        return flatten_fu_code
+
+    def get_futures_index_list(self):
+        fu_idx_list = self.dynamicCall('GetFutureList()')
+        fu_idx_list = fu_idx_list.split(';')[:-1]
+
+        fu_idx = list(set(map(lambda x: x[1:3], fu_idx_list))) # "" 공백 원소 건너뛰기
+        total_fu_idx_code = []
+        for fu_code in fu_idx:
+            tmp = []
+            for i in range(len(fu_idx_list)):
+                fu_code_i = fu_idx_list[i][1:3]
+                if fu_code_i == fu_code:
+                    tmp.append(fu_idx_list[i])
+                else:
+                    pass
+            total_fu_idx_code.append(tmp)
+
+        total_fu_idx_code = list(map(lambda x: x[:3], total_fu_idx_code))  # 더 원월물까지 포함하고 싶으면 3을 바꾸면됨
+
+        flatten_fu_idx_code = []
+        for fu_code in total_fu_idx_code:
+            flatten_fu_idx_code = flatten_fu_idx_code + fu_code
+
+        return flatten_fu_idx_code
 
 
 if __name__ == '__main__':

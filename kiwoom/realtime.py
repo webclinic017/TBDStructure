@@ -2,15 +2,15 @@ import datetime
 import gc, os, sys
 from PyQt5.QtWidgets import QApplication
 
-from base import KiwoomBaseAPI
+from .base import KiwoomBaseAPI
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 
 class KiwoomRealtimeAPI(KiwoomBaseAPI):
 
-    def __init__(self, api_queue, port_queue):
-        super().__init__()
+    def __init__(self, api_queue, port_queue, monitor_stocks):
+        super().__init__(monitor_stocks)
 
         self.api_queue = api_queue
         self.port_queue = port_queue
@@ -22,19 +22,27 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
         self.set_monitor_stocks_data()
         self.set_realtime_monitor_stocks()
 
+    def set_monitor_stocks_data(self):
+        for code in self.monitor_stocks:
+            if code != '001':
+                self.get_min_ohlcv(code)
+            else:
+                self.get_sec_ohlcv(code)
+
     def set_realtime_monitor_stocks(self):
         self.set_real_reg('0101', '', self.realType.REALTYPE['장시작시간']['장운영구분'], '0')
         print("실시간 등록 코드: %s, 스크린번호: %s, fid번호: %s" % ('장시작시간', '0101', self.realType.REALTYPE['장시작시간']['장운영구분']))
         try:
             cnt = 0
             screen_no = 1000
-            for code in self.monitor_stocks_list:
+            for code in self.monitor_stocks:
                 if code != '001': # 코스피 지수 실시간 데이터에서 제외
                     if cnt % 50 == 0:
                         screen_no += 1
                     fid = f"{self.realType.REALTYPE['주식체결']['체결시간']};{self.realType.REALTYPE['주식호가잔량']['매수호가1']}"
                     self.set_real_reg(str(screen_no), code, fid, '1')
                     print("실시간 등록 코드: %s, 스크린번호: %s, fid번호: %s" % (code, screen_no, fid))
+                    cnt += 1
         except:
             print('실시간 등록에 실패, 다시 시도')
             self.set_realtime_monitor_stocks()
@@ -66,8 +74,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
         # 매일 예수금을 변경하고, 투자 금액도 그에 따라 변경한다
         deposit = self.get_comm_data(trcode, rqname, 0, '예수금')
         self.deposit = int(deposit)
-        self.round_bet_amount = int(deposit) // 5
-        print('예수금: {}, 1차 투자 금액: {}'.format(self.deposit, self.round_bet_amount))
+        print('예수금: {}'.format(self.deposit))
 
         available_deposit = self.get_comm_data(trcode, rqname, 0, '출금가능금액')
         available_deposit = int(available_deposit)
@@ -187,16 +194,16 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
 
             tmp_data.append(update_data)
 
-        if code not in self.min_data.keys():
-            self.min_data[code] = tmp_data
+        if code not in self.monitor_stocks_data.keys():
+            self.monitor_stocks_data[code] = tmp_data
         else:
-            old_data = self.min_data[code]
-            self.min_data[code] = old_data + tmp_data
+            old_data = self.monitor_stocks_data[code]
+            self.monitor_stocks_data[code] = old_data + tmp_data
 
         self.request_break_cnt += 1
 
         if (prev_next == '2') and (self.request_break_cnt < self.request_break_pt):
-            self.get_min_ohlcv(prev_next)
+            self.get_min_ohlcv(code, prev_next=prev_next)
         else:
             self.tr_event_loop.exit()
 
@@ -226,16 +233,16 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
 
             tmp_data.append(update_data)
 
-        if code not in self.sec_data.keys():
-            self.sec_data[code] = tmp_data
+        if code not in self.monitor_stocks_data.keys():
+            self.monitor_stocks_data[code] = tmp_data
         else:
-            old_data = self.sec_data[code]
-            self.sec_data[code] = old_data + tmp_data
+            old_data = self.monitor_stocks_data[code]
+            self.monitor_stocks_data[code] = old_data + tmp_data
 
         self.request_break_cnt += 1
 
         if (prev_next == '2') and (self.request_break_cnt < self.request_break_pt):
-            self.get_sec_ohlcv(prev_next)
+            self.get_sec_ohlcv(code, prev_next=prev_next)
         else:
             self.tr_event_loop.exit()
 
@@ -269,6 +276,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             buy_price = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["(최우선)매수호가"])
 
             tick_data = {
+                'type': 'tick',
                 'code': code.strip(),
                 'trade_date': str(trade_date),
                 'timestamp': datetime.datetime.now().strftime("%Y%m%d%H%M%S.%f")[:-3],
@@ -386,6 +394,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
                 ratio_sell_hoga_stack = None
 
             hoga_data = {
+                'type': 'hoga',
                 'hoga_date': abs(processor(hoga_date)),
                 'sell_hoga1': abs(processor(sell_hoga1)),
                 'sell_hoga2': abs(processor(sell_hoga2)),
@@ -459,6 +468,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             first_buy_price = self.get_chegan_data(self.realType.REALTYPE["주문체결"]["(최우선)매수호가"])
 
             che_data = {
+                'type': 'che',
                 'account_num': account_num,
                 'code': code,
                 'stock_name': stock_name.strip(),
@@ -494,6 +504,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             first_buy_price = self.get_chegan_data(self.realType.REALTYPE['잔고']['(최우선)매수호가'])
 
             jan_data = {
+                'type': 'jan',
                 'account_num': account_num,
                 'code': code,
                 'stock_name': stock_name.strip(),

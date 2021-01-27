@@ -1,12 +1,12 @@
-import datetime, requests, sys, os
+import datetime, requests, sys, os, time
 
 from PyQt5.QAxContainer import QAxWidget
 from PyQt5.QtCore import QEventLoop
 from PyQt5.QtTest import QTest
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
-from errcode import *
-from realtype import *
+from .errcode import *
+from .realtype import *
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -18,7 +18,7 @@ class KiwoomBaseAPI(QMainWindow):
     Base API 클래스는 로그인/관심종목 등록까지 처리
     '''
 
-    def __init__(self):
+    def __init__(self, monitor_stocks):
         super().__init__()
 
         self.kiwoom = self.create_kiwoom_ocx_instance()
@@ -29,20 +29,8 @@ class KiwoomBaseAPI(QMainWindow):
         self.realType = RealType()
         self.account_num = None             # 계좌번호
         self.deposit = None                 # 예수금
-        self.round_bet_amount = None        # 1차 투자/배팅 금액
-        self.portfolio_stocks = {}          # 계좌평가잔고내역 (보유 종목 정보) --> 데이터 세팅하면서 제거됨
-        self.monitor_portfolio_stocks = {}  # 관심종목 계좌평가잔고내역
-        self.remaining_orders = {}          # 실시간미체결정보
-        self.min_data = {}                  # Temporary Data: 분봉 데이터 모아두는 곳 --> 제거됨
-        self.sec_data = {}                  # Temporary Data: 업종 데이터 --> 제거됨
         self.request_break_cnt = 0          # 데이터 세팅 중 요청 횟수 카운팅 변수
-        self.request_break_pt = 1           # 데이터 세팅 중 최대 요청 횟수
-        self.stop_order_switch = 0          # 주문이 들어간 상태에서 모든 주문을 막는 스위치
-        self.stop_realtime_switch = 1       # 실시간 데이터가 등록되기 전에 실시간 스트림을 막는 스위치
-
-        self.user_state = True
-        self.market_state = 1
-        self.port_state = ''
+        self.request_break_pt = 5           # 데이터 세팅 중 최대 요청 횟수
 
         self.today_date = datetime.datetime.now().strftime('%Y%m%d')
 
@@ -51,16 +39,8 @@ class KiwoomBaseAPI(QMainWindow):
         self.total_futures_list = self.get_futures_code_list('') + self.get_futures_index_list()
         self.stocks_futures_code = self.total_stocks_list + self.total_futures_list
 
-        self.monitor_stocks_list = []
+        self.monitor_stocks = monitor_stocks + ['001']
         self.monitor_stocks_data = {}
-
-        # 전처리 작업: 관심종목 불러오기
-        self.get_monitor_stocks_list()
-
-    def get_monitor_stocks_list(self):
-        # TODO: DB에서 모너터링 종목 가져오기
-        codelist = []
-        self.monitor_stocks_list = [code.strip() for code in codelist] + ['001']
 
     def create_kiwoom_ocx_instance(self):
         return QAxWidget('KHOPENAPI.KHOpenAPICtrl.1')
@@ -147,6 +127,9 @@ class KiwoomBaseAPI(QMainWindow):
         return order_res
 
     def get_account_num(self):
+        """
+        모든 계좌에 대한 정보를 반환하도록 수정하기
+        """
         account_list = self.get_login_info()
         self.account_num = account_list.split(';')[0]
         print('계좌번호: {}'.format(self.account_num))
@@ -172,14 +155,14 @@ class KiwoomBaseAPI(QMainWindow):
         self.comm_rq_data('실시간미체결요청', 'opt10075', '0', '2002')
 
     def get_min_ohlcv(self, code, prev_next='0'):
-        QTest.qWait(SLEEP_TIME)
+        time.sleep(SLEEP_TIME)
         self.set_input_value("종목코드", code)
-        self.set_input_value("틱범위", "15")
+        self.set_input_value("틱범위", '1')
         self.set_input_value("수정주가구분", "0")
         self.comm_rq_data("주식분봉차트조회", "opt10080", prev_next, '2003')
 
     def get_sec_ohlcv(self, code, prev_next='0'):
-        QTest.qWait(SLEEP_TIME)
+        time.sleep(SLEEP_TIME)
         self.set_input_value("업종코드", code)
         self.comm_rq_data("업종일봉차트조회", "opt20006", prev_next, '2004')
 
@@ -188,7 +171,7 @@ class KiwoomBaseAPI(QMainWindow):
         return code_list.split(";")[:-1]
 
     def get_futures_code_list(self, blank):
-        stock_futures_code_list = self.dynamicCall('GetSFutureList(Qstring, int)', blank)
+        stock_futures_code_list = self.kiwoom.dynamicCall('GetSFutureList(Qstring, int)', blank)
         stock_futures_code_list = stock_futures_code_list.split('|')
         stock_futures_code_list = list(map(lambda x: x.split('^')[0], stock_futures_code_list))
 
@@ -214,7 +197,7 @@ class KiwoomBaseAPI(QMainWindow):
         return flatten_fu_code
 
     def get_futures_index_list(self):
-        fu_idx_list = self.dynamicCall('GetFutureList()')
+        fu_idx_list = self.kiwoom.dynamicCall('GetFutureList()')
         fu_idx_list = fu_idx_list.split(';')[:-1]
 
         fu_idx = list(set(map(lambda x: x[1:3], fu_idx_list))) # "" 공백 원소 건너뛰기

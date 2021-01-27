@@ -13,26 +13,28 @@ def strategy_process(strategy_cls, data_queue, port_queue):
     s.calc_signals()
 
 def data_handler_process(source, data_queues, port_queue, api_queue):
-    dh = DataHandler(
+    d = DataHandler(
         data_queues=data_queues,
         port_queue=port_queue,
         api_queue=api_queue,
         source=source)
+    d.start_event_loop()
 
 def portfolio_process(port_queue):
     # Portfolio + Execution
     e = Portfolio(port_queue)
     e.start_event_loop()
 
-def main(source, api_queue, port_queue):
+def main(source, api_queue, port_queue, monitor_stocks):
     if source == 'kiwoom':
         app = QApplication(sys.argv)
-        _ = KiwoomRealtimeAPI(api_queue, port_queue)
+        _ = KiwoomRealtimeAPI(api_queue, port_queue, monitor_stocks)
         sys.exit(app.exec_())
 
 
 if __name__ == '__main__':
     source = 'kiwoom'
+    monitor_stocks = ['005930', '000020', '000030']
 
     st = [Strategy_1, Strategy_2]
 
@@ -57,4 +59,4 @@ if __name__ == '__main__':
     pp.start()
     
     # Main 프로세스 키움/이베스트/바이낸스 API 실행
-    main(source=source, api_queue=a_q, port_queue=p_q)
+    main(source=source, api_queue=a_q, port_queue=p_q, monitor_stocks=monitor_stocks)

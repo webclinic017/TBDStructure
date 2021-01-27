@@ -1,5 +1,5 @@
 import datetime
-import gc, os, sys
+import os, sys
 from PyQt5.QtWidgets import QApplication
 
 from .base import KiwoomBaseAPI

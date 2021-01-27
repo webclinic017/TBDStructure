@@ -15,12 +15,17 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
         self.api_queue = api_queue
         self.port_queue = port_queue
 
+        print('Initializing Kiwoom API')
         self.get_account_num()
         self.get_account_info()
         self.get_portfolio_stocks()
         self.get_remaining_orders()
         self.set_monitor_stocks_data()
         self.set_realtime_monitor_stocks()
+
+    def order_event_loop(self):
+        # 주문을 받아서 처리하는 부분 구현하기
+        pass
 
     def set_monitor_stocks_data(self):
         for code in self.monitor_stocks:
@@ -271,8 +276,8 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             low = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["저가"])
             volume = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["거래량"])
             cum_volume = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["누적거래량"])
-            sell_price = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["(최우선)매도호가"])
-            buy_price = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["(최우선)매수호가"])
+            trade_sell_hoga1 = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["(최우선)매도호가"])
+            trade_buy_hoga1 = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["(최우선)매수호가"])
 
             tick_data = {
                 'type': 'tick',
@@ -285,11 +290,12 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
                 'low': abs(int(low)),
                 'volume': abs(int(volume)),
                 'cum_volume': abs(int(cum_volume)),
-                'sell_price': abs(int(sell_price)),
-                'buy_price': abs(int(buy_price))
+                'trade_sell_hoga1': abs(int(trade_sell_hoga1)),
+                'trade_buy_hoga1': abs(int(trade_buy_hoga1))
             }
 
             # update_data (data handler로 데이터 보내주기)
+            self.api_queue.put(tick_data)
 
         elif (real_type == "주식호가잔량") | (real_type == "주식선물호가잔량") | (real_type == "선물호가잔량"):
             hoga_date = self.get_comm_real_data(code, self.realType.REALTYPE[real_type]["호가시간"])
@@ -394,7 +400,9 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
 
             hoga_data = {
                 'type': 'hoga',
+                'code': code,
                 'hoga_date': abs(processor(hoga_date)),
+                'timestamp': datetime.datetime.now().strftime("%Y%m%d%H%M%S.%f")[:-3],
                 'sell_hoga1': abs(processor(sell_hoga1)),
                 'sell_hoga2': abs(processor(sell_hoga2)),
                 'sell_hoga3': abs(processor(sell_hoga3)),
@@ -444,6 +452,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             }
 
             # update_data (data handler로 데이터 보내주기)
+            self.api_queue.put(hoga_data)
 
     def receive_chejan_data(self, gubun, item_cnt, fid_list):
 
@@ -487,6 +496,8 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             }
 
             # update_data (portfolio로 데이터 보내주기)
+            # 이벤트로 수정해주기
+            self.port_queue.put(che_data)
 
         elif int(gubun) == 1:
             # 잔고
@@ -518,6 +529,8 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             }
 
             # update_data (portfolio로 데이터 보내주기)
+            # 이벤트로 수정해주기
+            self.port_queue.put(jan_data)
 
 
 if __name__ == '__main__':

@@ -30,7 +30,7 @@ class KiwoomBaseAPI(QMainWindow):
         self.account_num = None             # 계좌번호
         self.deposit = None                 # 예수금
         self.request_break_cnt = 0          # 데이터 세팅 중 요청 횟수 카운팅 변수
-        self.request_break_pt = 5           # 데이터 세팅 중 최대 요청 횟수
+        self.request_break_pt = 3           # 데이터 세팅 중 최대 요청 횟수
 
         self.today_date = datetime.datetime.now().strftime('%Y%m%d')
 

@@ -1,10 +1,76 @@
-import zmq
+# import zmq
+# import datetime
+import numpy as np
+import pandas as pd
+from multiprocessing import shared_memory
 
 from event import MarketEvent
 
+second_table = {
+    date: i for i, date in
+    enumerate([d.strftime('%H%M%S') for d in pd.date_range('08:30', '15:30', freq='S')])
+}
+
+minute_table = {
+    date: i for i, date in
+    enumerate([d.strftime('%H%M%S') for d in pd.date_range('08:30', '15:30', freq='T')])
+}
+
+field_table = {
+    'current_price': None,
+    'cum_volume': None,
+    'sell_hoga1': None,
+    'sell_hoga2': None,
+    'sell_hoga3': None,
+    'sell_hoga4': None,
+    'sell_hoga5': None,
+    'sell_hoga6': None,
+    'sell_hoga7': None,
+    'sell_hoga8': None,
+    'sell_hoga9': None,
+    'sell_hoga10': None,
+    'buy_hoga1': None,
+    'buy_hoga2': None,
+    'buy_hoga3': None,
+    'buy_hoga4': None,
+    'buy_hoga5': None,
+    'buy_hoga6': None,
+    'buy_hoga7': None,
+    'buy_hoga8': None,
+    'buy_hoga9': None,
+    'buy_hoga10': None,
+    'sell_hoga1_stack': None,
+    'sell_hoga2_stack': None,
+    'sell_hoga3_stack': None,
+    'sell_hoga4_stack': None,
+    'sell_hoga5_stack': None,
+    'sell_hoga6_stack': None,
+    'sell_hoga7_stack': None,
+    'sell_hoga8_stack': None,
+    'sell_hoga9_stack': None,
+    'sell_hoga10_stack': None,
+    'buy_hoga1_stack': None,
+    'buy_hoga2_stack': None,
+    'buy_hoga3_stack': None,
+    'buy_hoga4_stack': None,
+    'buy_hoga5_stack': None,
+    'buy_hoga6_stack': None,
+    'buy_hoga7_stack': None,
+    'buy_hoga8_stack': None,
+    'buy_hoga9_stack': None,
+    'buy_hoga10_stack': None,
+    'total_buy_hoga_stack': None,
+    'total_sell_hoga_stack': None,
+    'net_buy_hoga_stack': None,
+    'net_sell_hoga_stack': None,
+    'ratio_buy_hoga_stack': None,
+    'ratio_sell_hoga_stack': None
+}
+field_table = {field: i for i, field in enumerate(list(field_table.keys()))}
+
 
 class DataHandler:
-    def __init__(self, data_queues, port_queue, api_queue, source: str = 'csv'):
+    def __init__(self, data_queues, port_queue, api_queue, monitor_stocks, source: str = 'csv'):
         """
         source: csv, kiwoom, ebest, binance etc.
         """
@@ -12,42 +78,157 @@ class DataHandler:
 
         # source마다 들어오는 데이터가 다를 수 있기 때문에 소스 구분을 확실히 한다.
         self.source = source
-
+        
         self.queues = data_queues + [port_queue]
         self.api_queue = api_queue
+        
+        # monitor stock list 받아서 symbol table 만들기
+        self.symbol_list = monitor_stocks
+        self.symbol_cnt = len(self.symbol_list)
+        self.symbol_table = {symbol: i for i, symbol in enumerate(sorted(self.symbol_list))}
+        # symbol_time_table: 최근 shared_memory에 업데이트된 시간
+        self.symbol_time_table = {symbol: {'시': '08', '분': '29'} for symbol in self.symbol_list}
 
-        # API 데이터를 소켓으로 받아올 수도 있다.
-        context = zmq.Context()
-        self.socket = context.socket(zmq.SUB)
-        self.socket.connect("tcp://localhost:5555")
-        self.socket.setsockopt_string(zmq.SUBSCRIBE, '')
+        # [초봉 array 생성]
+        sec_field_cnt = len(field_table.keys())  # 컬럼수 (field_table 참고)
+        second_cnt = len(second_table.keys())
+        self.sec_mem_shape = (int(self.symbol_cnt), int(second_cnt), int(sec_field_cnt))
 
-    def update_bars(self):
+        sec_array = np.zeros(self.sec_mem_shape)
+        self.sec_mem_dtype = sec_array.dtype
+        self.sec_mem_size = sec_array.nbytes
+
+        self.sec_mem = shared_memory.SharedMemory(create=True, size=self.sec_mem_size)
+        self.sec_mem_array = np.ndarray(shape=self.sec_mem_shape, dtype=self.sec_mem_dtype, buffer=self.sec_mem.buf)
+        self.sec_mem_array[:] = sec_array[:]
+        del sec_array
+
+        # [분봉 array 생성]
+        # current_price, open_price, high, low, cum_volume, trade_sell_hoga1, trade_buy_hoga1
+        min_field_cnt = 7
+        minute_cnt = len(minute_table.keys())
+        self.min_mem_shape = (int(self.symbol_cnt), int(minute_cnt), int(min_field_cnt))
+
+        min_array = np.zeros(self.min_mem_shape)
+        self.min_mem_dtype = min_array.dtype
+        self.min_mem_size = min_array.nbytes
+
+        self.min_mem = shared_memory.SharedMemory(create=True, size=self.min_mem_size)
+        self.min_mem_array = np.ndarray(shape=self.min_mem_shape, dtype=self.min_mem_dtype, buffer=self.min_mem.buf)
+        self.min_mem_array[:] = min_array[:]
+        del min_array
+
+        print('Shared Memory array를 생성하였습니다.')
+        print(f'[Second Array] Memory: {self.sec_mem.name} / Shape: {self.sec_mem_shape} / Size: {self.sec_mem_size/1e6} MBs')
+        print(f'[Minute Array] Memory: {self.min_mem.name} / Shape: {self.min_mem_shape} / Size: {self.min_mem_size / 1e6} MBs')
+
+        # # API 데이터를 소켓으로 받아올 수도 있다.
+        # context = zmq.Context()
+        # self.socket = context.socket(zmq.SUB)
+        # self.socket.connect("tcp://localhost:5555")
+        # self.socket.setsockopt_string(zmq.SUBSCRIBE, '')
+
+    def update_bars(self, symbol, date, current_price, open_price, high, low,
+                    cum_volume, trade_sell_hoga1, trade_buy_hoga1):
+        # 분봉 데이터가 업데이트되면 자동으로 연결된 모든 프로세스로 분봉 데이터 보내주기
         m_e = MarketEvent(
-            symbol='',
-            current_price=0,
-            open_price=0,
-            high_price=0,
-            low_price=0,
-            cum_volume=0
+            symbol=symbol,
+            date=date,
+            current_price=current_price,
+            open_price=open_price,
+            high_price=high,
+            low_price=low,
+            cum_volume=cum_volume
         )
 
         for q in self.queues:
             q.put(m_e)
 
-    def kiwoom_event_loop(self):
-        """
-        키움증권 API는 32비트 프로그램으로 실행되기 때문에 메모리 사용이 효율적이지 않다.
-        ZeroMQ로 실시간 데이터를 받아서 shared memory를 만들도록 한다.
-        """
-        while True:
-            pass
-
     def start_event_loop(self):
-        if self.source == 'kiwoom':
-            self.kiwoom_event_loop()
-        else:
-            while True:
-                data = self.api_queue.get()
+        while True:
+            data = self.api_queue.get()
 
-                # data handle
+            if data['code'] in self.symbol_list:
+                # backtest할때는 전종목 데이터를 보내는 경우도 있기 때문에 필터하여 업데이트하기
+                self.update_shared_memory(data)
+
+    def update_shared_memory(self, data):
+        code = data['code']
+        code_idx = self.symbol_table[code]
+
+        # 초봉 업데이트
+        if data['type'] == 'tick':
+            trade_date = data['trade_date']
+            date_idx = second_table[trade_date]
+            self.sec_mem_array[code_idx, date_idx, :2] = [data['current_price'], data['cum_volume']]
+        elif data['type'] == 'hoga':
+            hoga_date = data['hoga_date']
+            date_idx = second_table[hoga_date]
+            self.sec_mem_array[code_idx, date_idx, 2:] = [data.get(field) if data.get(field) is not None else 0
+                                                          for field in field_table.keys()
+                                                          if field not in ['current_price', 'cum_volume']]
+
+        # 분봉 업데이트
+        # 틱데이터를 초단위로 업데이트하였다면 분단위로 업데이트도 따로 진행한다.
+        # 분봉 업데이트는 완료후 소켓 연결로 업데이트 내용을 publish해준다.
+        # 모든 subscriber들은 변경된 데이터를 받을 수 있다.
+        hour = trade_date[:2]
+        minute = trade_date[2:4]
+        second = '00'
+        min_date = f'{hour}{minute}{second}'
+        date_idx = minute_table[min_date]
+
+        update_hour = self.symbol_time_table[code]['시']
+        updated_minute = self.symbol_time_table[code]['분']
+        updated_min_date = f'{update_hour}{updated_minute}00'
+
+        if (int(updated_min_date) != int(min_date)) and (int(min_date) > int(updated_min_date)):
+            """
+            Issue: 데이터가 순차적으로 들어오지 않으면 분봉 데이터가 꼬일 수 있다
+                   키움에서 제공하는 데이터는 초단위까지밖에 데이터를 제공하지 않기 때문에
+                   로컬에서 찍은 데이터를 기반으로 데이터를 만들 수밖에 없다.
+            """
+
+            # 분이 바뀌었기 때문에 새로운 row를 추가해주는 작업
+            self.symbol_time_table[code]['시'] = hour
+            self.symbol_time_table[code]['분'] = minute
+
+            # current_price, open_price, high, low, cum_volume, trade_sell_hoga1, trade_buy_hoga1
+            self.min_mem_array[code_idx, date_idx, :] = [
+                data['current_price'],
+                data['current_price'], # 시가는 종가로 설정하기
+                data['current_price'], # 고가도 종가로 설정하기
+                data['current_price'], # 저가도 종가로 설정하기 --> 다음 데이터부터 수정하기 시작
+                data['cum_volume'],
+                data['trade_sell_hoga1'],
+                data['trade_buy_hoga1']
+            ]
+
+            # 1분이 지나면 무조건 시그널을 보내지만, 이후에 데이터가 살짝 변할 수 있다. (시가 데이터는 전본 종가로 가져와서 사용하는게 더 깔끔할 수 있다)
+            # 저가, 고가는 항상 같지만, 시가/종가가 조금씩 변한다.
+            # RabbitMQ에서 받아오는 데이터가 무조건 순차적이라면 데이터는 완벽하다고 할 수 있다.
+            last_data = self.min_mem_array[code_idx, date_idx - 1, :].reshape((7,))
+            self.update_bars(
+                symbol=code,
+                date=min_date,
+                current_price=last_data[0],
+                open_price=last_data[1],
+                high=last_data[2],
+                low=last_data[3],
+                cum_volume=last_data[4],
+                trade_sell_hoga1=last_data[5],
+                trade_buy_hoga1=last_data[6]
+            )
+        else:
+            self.min_mem_array[code_idx, date_idx, 0] = data['current_price']  # 종가는 실시간으로 업데이트
+            self.min_mem_array[code_idx, date_idx, 4] = data['cum_volume']  # 거래량은 실시간으로 업데이트
+            self.min_mem_array[code_idx, date_idx, 5] = data['trade_sell_hoga1']  # 호가 정보 실시간으로 업데이트
+            self.min_mem_array[code_idx, date_idx, 6] = data['trade_buy_hoga1']
+
+        if self.min_mem_array[code_idx, date_idx, 2] < data['current_price']:
+            # 고가 업데이트
+            self.min_mem_array[code_idx, date_idx, 2] = data['current_price']
+
+        if self.min_mem_array[code_idx, date_idx, 3] > data['current_price']:
+            # 저가 업데이트
+            self.min_mem_array[code_idx, date_idx, 3] = data['current_price']

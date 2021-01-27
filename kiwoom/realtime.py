@@ -28,6 +28,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
                 self.get_min_ohlcv(code)
             else:
                 self.get_sec_ohlcv(code)
+            print(f'종목/지수 데이터 수집 완료: {code}')
 
     def set_realtime_monitor_stocks(self):
         self.set_real_reg('0101', '', self.realType.REALTYPE['장시작시간']['장운영구분'], '0')
@@ -113,7 +114,6 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             current_price = int(current_price.strip())
             total_buy_amount = int(total_buy_amount.strip())
             possible_quantity = int(possible_quantity.strip())
-            gc.collect()
 
             self.portfolio_stocks[code].update({'종목명': code_nm})
             self.portfolio_stocks[code].update({'보유수량': stock_quantity})
@@ -151,7 +151,6 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             order_gubun = order_gubun.strip().lstrip("+").lstrip("-")
             not_quantity = int(not_quantity.strip())
             ok_quantity = int(ok_quantity.strip())
-            gc.collect()
 
             if order_no not in self.remaining_orders:
                 self.remaining_orders.update({order_no: {}})

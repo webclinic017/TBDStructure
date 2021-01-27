@@ -2,7 +2,7 @@ import datetime, requests, sys, os, time
 
 from PyQt5.QAxContainer import QAxWidget
 from PyQt5.QtCore import QEventLoop
-from PyQt5.QtTest import QTest
+# from PyQt5.QtTest import QTest
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from .errcode import *
@@ -41,6 +41,8 @@ class KiwoomBaseAPI(QMainWindow):
 
         self.monitor_stocks = monitor_stocks + ['001']
         self.monitor_stocks_data = {}
+        self.portfolio_stocks = {}
+        self.remaining_orders = {}
 
     def create_kiwoom_ocx_instance(self):
         return QAxWidget('KHOPENAPI.KHOpenAPICtrl.1')

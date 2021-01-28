@@ -9,10 +9,12 @@ from portfolio import Portfolio
 from kiwoom.realtime import KiwoomRealtimeAPI
 
 def strategy_process(strategy_cls, data_queue, port_queue,
-                     sec_mem_name, sec_mem_shape, sec_mem_dtype,
+                     tick_mem_name, tick_mem_shape, tick_mem_dtype,
+                     hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
                      min_mem_name, min_mem_shape, min_mem_dtype):
     s = strategy_cls(data_queue, port_queue,
-                     sec_mem_name, sec_mem_shape, sec_mem_dtype,
+                     tick_mem_name, tick_mem_shape, tick_mem_dtype,
+                     hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
                      min_mem_name, min_mem_shape, min_mem_dtype)
     s.calc_signals()
 
@@ -24,9 +26,12 @@ def data_handler_process(source, monitor_stocks, data_queues, port_queue, api_qu
         monitor_stocks=monitor_stocks,
         source=source)
     tmp_queue.put({
-        'sec_mem_name': d.sec_mem.name,
-        'sec_mem_shape': d.sec_mem_shape,
-        'sec_mem_dtype': d.sec_mem_dtype,
+        'tick_mem_name': d.tick_mem.name,
+        'tick_mem_shape': d.tick_mem_shape,
+        'tick_mem_dtype': d.tick_mem_dtype,
+        'hoga_mem_name': d.hoga_mem.name,
+        'hoga_mem_shape': d.hoga_mem_shape,
+        'hoga_mem_dtype': d.hoga_mem_dtype,
         'min_mem_name': d.min_mem.name,
         'min_mem_shape': d.min_mem_shape,
         'min_mem_dtype': d.min_mem_dtype
@@ -71,9 +76,12 @@ if __name__ == '__main__':
     pp.start()
 
     shm_info = tmp_q.get()
-    sec_mem_name = shm_info['sec_mem_name']
-    sec_mem_shape = shm_info['sec_mem_shape']
-    sec_mem_dtype = shm_info['sec_mem_dtype']
+    tick_mem_name = shm_info['tick_mem_name']
+    tick_mem_shape = shm_info['tick_mem_shape']
+    tick_mem_dtype = shm_info['tick_mem_dtype']
+    hoga_mem_name = shm_info['hoga_mem_name']
+    hoga_mem_shape = shm_info['hoga_mem_shape']
+    hoga_mem_dtype = shm_info['hoga_mem_dtype']
     min_mem_name = shm_info['min_mem_name']
     min_mem_shape = shm_info['min_mem_shape']
     min_mem_dtype = shm_info['min_mem_dtype']
@@ -83,7 +91,8 @@ if __name__ == '__main__':
     pr = []
     for i in range(len(st)):
         p = Process(target=strategy_process, args=(st[i], d_q[i], p_q,
-                                                   sec_mem_name, sec_mem_shape, sec_mem_dtype,
+                                                   tick_mem_name, tick_mem_shape, tick_mem_dtype,
+                                                   hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
                                                    min_mem_name, min_mem_shape, min_mem_dtype))
         pr.append(p)
     

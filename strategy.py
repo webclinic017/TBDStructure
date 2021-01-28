@@ -4,15 +4,20 @@ from multiprocessing import shared_memory
 
 class Strategy:
     def __init__(self, data_queue, port_queue,
-                 sec_mem_name='', sec_mem_shape=(), sec_mem_dtype=None,
+                 tick_mem_name='', tick_mem_shape=(), tick_mem_dtype=None,
+                 hoga_mem_name='', hoga_mem_shape=(), hoga_mem_dtype=None,
                  min_mem_name='', min_mem_shape=(), min_mem_dtype=None):
         # Signal Event를 port_queue로 push해준다.
         self.data_queue = data_queue
         self.port_queue = port_queue
 
-        self.sec_mem_shape = sec_mem_shape
-        self.sec_mem = shared_memory.SharedMemory(name=sec_mem_name)
-        self.sec_mem_array = np.ndarray(shape=sec_mem_shape, dtype=sec_mem_dtype, buffer=self.sec_mem.buf)
+        self.tick_mem_shape = tick_mem_shape
+        self.tick_mem = shared_memory.SharedMemory(name=tick_mem_name)
+        self.tick_mem_array = np.ndarray(shape=tick_mem_shape, dtype=tick_mem_dtype, buffer=self.tick_mem.buf)
+
+        self.hoga_mem_shape = hoga_mem_shape
+        self.hoga_mem = shared_memory.SharedMemory(name=hoga_mem_name)
+        self.hoga_mem_array = np.ndarray(shape=hoga_mem_shape, dtype=hoga_mem_dtype, buffer=self.hoga_mem.buf)
 
         self.min_mem_shape = min_mem_shape
         self.min_mem = shared_memory.SharedMemory(name=min_mem_name)

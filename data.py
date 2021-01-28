@@ -6,6 +6,8 @@ from multiprocessing import shared_memory
 
 from event import MarketEvent
 
+from bar import Bar
+
 second_table = {
     date: i for i, date in
     enumerate([d.strftime('%H%M%S') for d in pd.date_range('08:30', '15:30', freq='S')])
@@ -16,58 +18,7 @@ minute_table = {
     enumerate([d.strftime('%H%M%S') for d in pd.date_range('08:30', '15:30', freq='T')])
 }
 
-field_table = {
-    'current_price': None,
-    'cum_volume': None,
-    'sell_hoga1': None,
-    'sell_hoga2': None,
-    'sell_hoga3': None,
-    'sell_hoga4': None,
-    'sell_hoga5': None,
-    'sell_hoga6': None,
-    'sell_hoga7': None,
-    'sell_hoga8': None,
-    'sell_hoga9': None,
-    'sell_hoga10': None,
-    'buy_hoga1': None,
-    'buy_hoga2': None,
-    'buy_hoga3': None,
-    'buy_hoga4': None,
-    'buy_hoga5': None,
-    'buy_hoga6': None,
-    'buy_hoga7': None,
-    'buy_hoga8': None,
-    'buy_hoga9': None,
-    'buy_hoga10': None,
-    'sell_hoga1_stack': None,
-    'sell_hoga2_stack': None,
-    'sell_hoga3_stack': None,
-    'sell_hoga4_stack': None,
-    'sell_hoga5_stack': None,
-    'sell_hoga6_stack': None,
-    'sell_hoga7_stack': None,
-    'sell_hoga8_stack': None,
-    'sell_hoga9_stack': None,
-    'sell_hoga10_stack': None,
-    'buy_hoga1_stack': None,
-    'buy_hoga2_stack': None,
-    'buy_hoga3_stack': None,
-    'buy_hoga4_stack': None,
-    'buy_hoga5_stack': None,
-    'buy_hoga6_stack': None,
-    'buy_hoga7_stack': None,
-    'buy_hoga8_stack': None,
-    'buy_hoga9_stack': None,
-    'buy_hoga10_stack': None,
-    'total_buy_hoga_stack': None,
-    'total_sell_hoga_stack': None,
-    'net_buy_hoga_stack': None,
-    'net_sell_hoga_stack': None,
-    'ratio_buy_hoga_stack': None,
-    'ratio_sell_hoga_stack': None
-}
-field_table = {field: i for i, field in enumerate(list(field_table.keys()))}
-
+FIELD_TABLE = Bar.FIELD_TABLE
 
 class DataHandler:
     def __init__(self, data_queues, port_queue, api_queue, monitor_stocks, source: str = 'csv'):
@@ -90,7 +41,7 @@ class DataHandler:
         self.symbol_time_table = {symbol: {'시': '08', '분': '29'} for symbol in self.symbol_list}
 
         # [초봉 array 생성] --> 가격/호가 array를 따로 생성한다.
-        sec_field_cnt = len(field_table.keys())  # 컬럼수 (field_table 참고)
+        sec_field_cnt = len(FIELD_TABLE.keys())  # 컬럼수 (FIELD_TABLE 참고)
         # second_cnt가 너무 커지기 때문에 dequeue하는 방식을 취하도록 한다.
         # 추후 RAM이 좋아지거나 전략을 수정할 경우 다른 방식을 고려해본다.
         # second_cnt = len(second_table.keys())
@@ -175,7 +126,7 @@ class DataHandler:
         code = data['code']
         code_idx = self.symbol_table[code]
 
-        # 초봉 업데이트
+        # 초봉 업데이트(초봉이 아닌 틱봉인듯)
         # tick/hoga 모두 업데이트해준다 (dequeue하는 방식!!)
         if data['type'] == 'tick':
             trade_date = data['trade_date']
@@ -189,7 +140,7 @@ class DataHandler:
             prev_upper = self.hoga_mem_array[code_idx, 1:, :]
             self.hoga_mem_array[code_idx, 0:-1, :] = prev_upper
             self.hoga_mem_array[code_idx, -1, :] = [data.get(field) if data.get(field) is not None else 0
-                                                    for field in field_table.keys()
+                                                    for field in FIELD_TABLE.keys()
                                                     if field not in ['current_price', 'cum_volume']]
 
         if data['type'] == 'tick':
@@ -229,7 +180,7 @@ class DataHandler:
                     data['trade_buy_hoga1']
                 ]
 
-                # 1분이 지나면 무조건 시그널을 보내지만, 이후에 데이터가 살짝 변할 수 있다. (시가 데이터는 전본 종가로 가져와서 사용하는게 더 깔끔할 수 있다)
+                # 1분이 지나면 무조건 시그널을 보내지만, 이후에 데이터가 살짝 변할 수 있다. (시가 데이터는 전분 종가로 가져와서 사용하는게 더 깔끔할 수 있다)
                 # 저가, 고가는 항상 같지만, 시가/종가가 조금씩 변한다.
                 # RabbitMQ에서 받아오는 데이터가 무조건 순차적이라면 데이터는 완벽하다고 할 수 있다.
                 last_data = self.min_mem_array[code_idx, date_idx - 1, :].reshape((7,))

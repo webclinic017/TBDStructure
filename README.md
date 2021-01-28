@@ -45,12 +45,12 @@ TBD툴은 큐를 활용하여 여러 프로세스 사이의 소통을 관리한�
 
 이를 사용하기 위해서는:
 
-'''
+```bash
 pip install -r requirements.txt
 python manage.py makemigrations
 python manage.py migrate
 python manage.py createsuperuser
-'''
+```
 
 을 차례로 실행한 다음 유저를 생성한 다음 사용할 수 있다.  
 makemigrations, migrate를 하면 core/models에서 정의된 모든 테이블을 db.sqlite3에 생성해준다.

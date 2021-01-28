@@ -28,3 +28,29 @@ TBD툴은 큐를 활용하여 여러 프로세스 사이의 소통을 관리한�
 - self.min_mem_array
 
 로 사용할 수 있도록 해준다.
+
+
+### DB 사용방법:
+
+데이터베이스는 Django 웹프레임워크에서 사용하는 query를 사용한다.  
+이의 장점으로:
+
+- 거대 커뮤니티가 뒤에 존재한다는 점
+- 다른 데이터베이스에서도 같은 방식으로 쿼리를 사용할 수 있다는 점
+- 최적화 작업이 쉽게 된다는 점
+- 사용이 상당히 쉽다는 점
+- 그리고 웹에서도 쉽게 연동할 수 있다는 점
+
+이 있다.
+
+이를 사용하기 위해서는:
+
+'''
+pip install -r requirements.txt
+python manage.py makemigrations
+python manage.py migrate
+python manage.py createsuperuser
+'''
+
+을 차례로 실행한 다음 유저를 생성한 다음 사용할 수 있다.  
+makemigrations, migrate를 하면 core/models에서 정의된 모든 테이블을 db.sqlite3에 생성해준다.

@@ -1,6 +1,14 @@
+Django
+django-cors-headers
+djangorestframework
+djangorestframework-simplejwt
 numpy
 pandas
+PyJWT
 PyQt5
+PyQt5-sip
+python-dateutil
+pytz
 pywin32
 pyzmq
 requests

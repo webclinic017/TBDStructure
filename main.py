@@ -8,11 +8,11 @@ from portfolio import Portfolio
 
 from kiwoom.realtime import KiwoomRealtimeAPI
 
-def strategy_process(strategy_cls, data_queue, port_queue,
+def strategy_process(strategy_cls, data_queue, port_queue, order_queue,
                      tick_mem_name, tick_mem_shape, tick_mem_dtype,
                      hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
                      min_mem_name, min_mem_shape, min_mem_dtype):
-    s = strategy_cls(data_queue, port_queue,
+    s = strategy_cls(data_queue, port_queue, order_queue,
                      tick_mem_name, tick_mem_shape, tick_mem_dtype,
                      hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
                      min_mem_name, min_mem_shape, min_mem_dtype)
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     # Strategy 프로세스 실행
     pr = []
     for i in range(len(st)):
-        p = Process(target=strategy_process, args=(st[i], d_q[i], p_q,
+        p = Process(target=strategy_process, args=(st[i], d_q[i], p_q, o_q,
                                                    tick_mem_name, tick_mem_shape, tick_mem_dtype,
                                                    hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
                                                    min_mem_name, min_mem_shape, min_mem_dtype))

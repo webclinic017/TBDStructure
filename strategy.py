@@ -3,13 +3,14 @@ from multiprocessing import shared_memory
 
 
 class Strategy:
-    def __init__(self, data_queue, port_queue,
+    def __init__(self, data_queue, port_queue, order_queue,
                  tick_mem_name='', tick_mem_shape=(), tick_mem_dtype=None,
                  hoga_mem_name='', hoga_mem_shape=(), hoga_mem_dtype=None,
                  min_mem_name='', min_mem_shape=(), min_mem_dtype=None):
         # Signal Event를 port_queue로 push해준다.
         self.data_queue = data_queue
         self.port_queue = port_queue
+        self.order_queue = order_queue
 
         self.tick_mem_shape = tick_mem_shape
         self.tick_mem = shared_memory.SharedMemory(name=tick_mem_name)

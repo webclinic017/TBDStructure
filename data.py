@@ -166,7 +166,6 @@ class DataHandler:
     def start_event_loop(self):
         while True:
             data = self.api_queue.get()
-            print(f'From Data Handler: {data}')
 
             if data['code'] in self.symbol_list:
                 # backtest할때는 전종목 데이터를 보내는 경우도 있기 때문에 필터하여 업데이트하기

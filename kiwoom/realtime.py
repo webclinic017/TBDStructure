@@ -1,10 +1,27 @@
 import datetime
 import os, sys
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import *
 
 from .base import KiwoomBaseAPI
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+
+
+class OrderThread(QThread):
+    order = pyqtSignal(str)
+
+    def __init__(self, order_queue):
+        QThread.__init__(self)
+        self.order_queue = order_queue
+
+    def run(self):
+        """
+        쓰레드에서 order를 받자마자 메인 쓰레드로 보내주기
+        """
+        while True:
+            order_data = self.order_queue.get()
+            self.order.emit(order_data)
 
 
 class KiwoomRealtimeAPI(KiwoomBaseAPI):
@@ -24,14 +41,15 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
         self.set_monitor_stocks_data()
         self.set_realtime_monitor_stocks()
 
-    def start_order_event_loop(self):
-        # TODO
-        # 주문을 받아서 처리하는 부분 구현하기
-        while True:
-            order = self.order_queue.get()
+        self.worker = OrderThread(self.order_queue)
+        self.worker.order.connect(self.on_receive_order)
+        self.worker.start()
 
-            # process order here
-            self.send_order(**order)
+    def on_receive_order(self, order):
+        print('receive order from main thread')
+        print(order)
+        
+        # order 주문 넣기
 
     def set_monitor_stocks_data(self):
         for code in self.monitor_stocks:

@@ -11,8 +11,7 @@ class Strategy(BarClient):
         self.port_queue = port_queue
         self.order_queue = order_queue
 
-        self.symbol_list = strategy_universe
-        print("strategy_universe 잘업데이트 됐나 확인용으로 프린트 찍음!!!!!!!!!!!!!!!!!", self.symbol_list)
+        self.symbol_list = strategy_universe # 잘들어옴
 
         # 상속하는 Bar 클래스의 SYMBOL_TABLE 바꿔주기!
         self.bar.set_symbol_table({symbol: i for i, symbol in enumerate(sorted(monitor_stocks))})

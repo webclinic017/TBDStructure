@@ -7,14 +7,14 @@ from data import DataHandler
 from portfolio import Portfolio
 from execution import ExecutionHandler
 
-from kiwoom.realtime import KiwoomRealtimeAPI
+# from kiwoom.realtime import KiwoomRealtimeAPI
 
 from ebest import ebest_data, ebest_execution
 from bar import Bar
 
 
-def strategy_process(strategy_cls, data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, SYMBOL_TABLE):
-    s = strategy_cls(data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, SYMBOL_TABLE)
+def strategy_process(strategy_cls, data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, bar):
+    s = strategy_cls(data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, bar)
     s.calc_signals()
 
 
@@ -64,9 +64,9 @@ if __name__ == '__main__':
     # Initialization
     source = 'ebest'
     initial_cap = 1000000
-    strategy1_universe = ['005930'] #, '096530']
-    # strategy2_universe = ['004770']
-    strategy2_universe = []
+    strategy1_universe = ['005930', '096530']
+    strategy2_universe = ['004770']
+    # strategy2_universe = []
     monitor_stocks = list(set(strategy1_universe + strategy2_universe)) # ["111R2000", "1CLR2000"] 삼전, 씨젠 , set 써서 정렬됨
 
     st = [Strategy_1, Strategy_2]
@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
     # [Process #1]
     # Data Handler를 프로세스 실행
-    dp = Process(target=data_handler_process, args=(source, monitor_stocks, d_q, p_q, a_q, tmp_q))
+    dp = Process(target=data_handler_process, args=(source, monitor_stocks, d_q, p_q, a_q, tmp_q), name="DataHandler")
     dp.start()
 
     shm_info = tmp_q.get()
@@ -95,8 +95,6 @@ if __name__ == '__main__':
     min_mem_shape = shm_info['min_mem_shape']
     min_mem_dtype = shm_info['min_mem_dtype']
 
-    SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(monitor_stocks))}
-
     # shared_memory를 가지고 있는 Bar 객체를 생성
     bar = Bar(None, tick_mem_name, tick_mem_shape, tick_mem_dtype,
               hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
@@ -104,12 +102,12 @@ if __name__ == '__main__':
 
     # [Process #2]
     # Portfolio 프로세스 실행
-    pp = Process(target=portfolio_process, args=(p_q, o_q, initial_cap, monitor_stocks, bar))
+    pp = Process(target=portfolio_process, args=(p_q, o_q, initial_cap, monitor_stocks, bar), name="Portfolio")
     pp.start()
 
     # [Process #3+]
     # Strategy 프로세스 실행
-    s1 = Process(target=strategy_process, args=(st[0], d_q[0], p_q, o_q, strategy1_universe, monitor_stocks, bar))
+    s1 = Process(target=strategy_process, args=(st[0], d_q[0], p_q, o_q, strategy1_universe, monitor_stocks, bar), name="Startegy1")
     s1.start()
 
     # s2 = Process(target=strategy_process, args=(st[i], d_q[i], p_q, o_q, strategy2_universe,
@@ -121,7 +119,7 @@ if __name__ == '__main__':
 
     # [Process #4]
     # Execution 프로세스 키움/이베스트/바이낸스 API 실행
-    ex = Process(target=execution_process, args=(p_q, o_q, source))
+    ex = Process(target=execution_process, args=(p_q, o_q, source), name="ExecutionHandler")
     ex.start()
 
     # [Process #5]

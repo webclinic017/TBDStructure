@@ -131,9 +131,10 @@ class XR_event_handler:
 class XQ_event_handler:
 
     def OnReceiveData(self, code):
-        print("%s 수신" % code, flush=True)
+        print("EbestAPI Data: %s 수신" % code, flush=True)
 
         if code == "t8436":
+            MyObjects.code_list = []
             occurs_count = self.GetBlockCount("t8436OutBlock")
             for i in range(occurs_count):
                 shcode = self.GetFieldData("t8436OutBlock", "shcode", i)
@@ -186,19 +187,19 @@ class XQ_event_handler:
             print(len(MyObjects.stock_futures_code_list), "주식선물 종목 리스트: %s" % MyObjects.stock_futures_code_list,
                   flush=True)
             print(len(MyObjects.stock_futures_basecode_list),
-                  "주식선물 basecode: %s" % MyObjects.stock_futures_basecode_list, flush=True)
+                  "주식선물 basecode: %s" % MyObjects.stock_futures_basecode_list)
 
             MyObjects.tr_ok = True
 
     def OnReceiveMessage(self, systemError, messageCode, message):
-        print("systemError: %s, messageCode: %s, message: %s" % (systemError, messageCode, message), flush=True)
+        print("systemError: %s, messageCode: %s, message: %s" % (systemError, messageCode, message))
 
 
 # 서버접속 및 로그인 요청 이후 수신결과 데이터를 다루는 구간
 class XS_event_handler:
 
     def OnLogin(self, szCode, szMsg):
-        print("%s %s" % (szCode, szMsg), flush=True)
+        print("EbestAPI Data: %s %s" % (szCode, szMsg), flush=True)
         if szCode == "0000":
             MyObjects.login_ok = True
         else:
@@ -208,7 +209,7 @@ class XS_event_handler:
 # 실행용 클래스
 class Main:
     def __init__(self, api_queue, port_queue, order_queue, monitor_stocks):
-        print("실행용 클래스이다")
+        print("EbestAPI Data started")
 
         MyObjects.monitor_stocks = monitor_stocks
         MyObjects.api_queue = api_queue
@@ -260,22 +261,7 @@ class Main:
         # MyObjects.whole_universe_code_list = MyObjects.stock_futures_code_list + MyObjects.stock_futures_basecode_list
         # ####################################
 
-        # KOSDAQ
-        MyObjects.real_event_KOSDAQ = win32com.client.DispatchWithEvents("XA_DataSet.XAReal", XR_event_handler)
-        MyObjects.real_event_KOSDAQ.ResFileName = "C:/eBEST/xingAPI/Res/K3_.res"
-        for shcode in MyObjects.monitor_stocks:  # 주식선물의 기초자산 종목만 등록!
-            if shcode in MyObjects.stock_KOSDAQ_code_list:
-                print("KOSDAQ 주식 체결 종목 등록 %s" % shcode)
-                MyObjects.real_event_KOSDAQ.SetFieldData("InBlock", "shcode", shcode)
-                MyObjects.real_event_KOSDAQ.AdviseRealData()
-
-        MyObjects.real_event_KOSDAQ_hoga = win32com.client.DispatchWithEvents("XA_DataSet.XAReal", XR_event_handler)
-        MyObjects.real_event_KOSDAQ_hoga.ResFileName = "C:/eBEST/xingAPI/Res/HA_.res"
-        for shcode in MyObjects.monitor_stocks:  # 주식선물의 기초자산 종목만 등록!
-            if shcode in MyObjects.stock_KOSDAQ_code_list:
-                print("KOSDAQ 주식 호가잔량 종목 등록 %s" % shcode)
-                MyObjects.real_event_KOSDAQ_hoga.SetFieldData("InBlock", "shcode", shcode)
-                MyObjects.real_event_KOSDAQ_hoga.AdviseRealData()
+        print(MyObjects.monitor_stocks)
 
         # KOSPI
         MyObjects.real_event_KOSPI = win32com.client.DispatchWithEvents("XA_DataSet.XAReal", XR_event_handler)
@@ -294,20 +280,39 @@ class Main:
                 MyObjects.real_event_KOSPI_hoga.SetFieldData("InBlock", "shcode", shcode)
                 MyObjects.real_event_KOSPI_hoga.AdviseRealData()
 
+        # KOSDAQ
+        MyObjects.real_event_KOSDAQ = win32com.client.DispatchWithEvents("XA_DataSet.XAReal", XR_event_handler)
+        MyObjects.real_event_KOSDAQ.ResFileName = "C:/eBEST/xingAPI/Res/K3_.res"
+        for shcode in MyObjects.monitor_stocks:  # 주식선물의 기초자산 종목만 등록!
+            if shcode in MyObjects.stock_KOSDAQ_code_list:
+                print("KOSDAQ 주식 체결 종목 등록 %s" % shcode)
+                MyObjects.real_event_KOSDAQ.SetFieldData("InBlock", "shcode", shcode)
+                MyObjects.real_event_KOSDAQ.AdviseRealData()
+
+        MyObjects.real_event_KOSDAQ_hoga = win32com.client.DispatchWithEvents("XA_DataSet.XAReal", XR_event_handler)
+        MyObjects.real_event_KOSDAQ_hoga.ResFileName = "C:/eBEST/xingAPI/Res/HA_.res"
+        for shcode in MyObjects.monitor_stocks:  # 주식선물의 기초자산 종목만 등록!
+            if shcode in MyObjects.stock_KOSDAQ_code_list:
+                print("KOSDAQ 주식 호가잔량 종목 등록 %s" % shcode)
+                MyObjects.real_event_KOSDAQ_hoga.SetFieldData("InBlock", "shcode", shcode)
+                MyObjects.real_event_KOSDAQ_hoga.AdviseRealData()
+
         # 주식선물
         MyObjects.real_event_fu = win32com.client.DispatchWithEvents("XA_DataSet.XAReal", XR_event_handler)
         MyObjects.real_event_fu.ResFileName = "C:/eBEST/xingAPI/Res/JC0.res"
         for futcode in MyObjects.monitor_stocks:
-            print("주식선물 체결 종목 등록 %s" % futcode)
-            MyObjects.real_event_fu.SetFieldData("InBlock", "futcode", futcode)
-            MyObjects.real_event_fu.AdviseRealData()
+            if futcode in MyObjects.stock_futures_code_list:
+                print("주식선물 체결 종목 등록 %s" % futcode)
+                MyObjects.real_event_fu.SetFieldData("InBlock", "futcode", futcode)
+                MyObjects.real_event_fu.AdviseRealData()
 
         MyObjects.real_event_fu_hoga = win32com.client.DispatchWithEvents("XA_DataSet.XAReal", XR_event_handler)
         MyObjects.real_event_fu_hoga.ResFileName = "C:/eBEST/xingAPI/Res/JH0.res"
         for futcode in MyObjects.monitor_stocks:
-            print("주식선물 호가잔량 종목 등록 %s" % futcode)
-            MyObjects.real_event_fu_hoga.SetFieldData("InBlock", "futcode", futcode)
-            MyObjects.real_event_fu_hoga.AdviseRealData()
+            if futcode in MyObjects.stock_futures_code_list:
+                print("주식선물 호가잔량 종목 등록 %s" % futcode)
+                MyObjects.real_event_fu_hoga.SetFieldData("InBlock", "futcode", futcode)
+                MyObjects.real_event_fu_hoga.AdviseRealData()
 
         while MyObjects.real_ok is False:
             pythoncom.PumpWaitingMessages()

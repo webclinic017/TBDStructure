@@ -71,7 +71,7 @@ class XR_event_handler:
 class XQ_event_handler:
 
     def OnReceiveData(self, code):
-        print("%s 수신" % code, flush=True)
+        print("EbestAPI Execution Handler: %s 수신" % code, flush=True)
 
         # TR: 잔고 조회
         if code == "t0424":
@@ -97,7 +97,7 @@ class XQ_event_handler:
             if self.IsNext is True: # 과거 데이터가 더 존재한다.
                 Ebest.t0424_request(cts_expcode=cts_expcode, next=self.IsNext)
             elif self.IsNext is False:
-                print("Total 잔고내역 %s" % Ebest.acc_balance, flush=True)
+                print("Total 잔고내역(IsNext 포함) %s" % Ebest.acc_balance, flush=True)
                 # 잔고 많이 만들어서 확인해보기?!
                 Ebest.tr_ok = True
 
@@ -109,7 +109,7 @@ class XQ_event_handler:
 class XS_event_handler:
 
     def OnLogin(self, szCode, szMsg):
-        print("%s %s" % (szCode, szMsg), flush=True)
+        print("EbestAPI Execution: %s %s" % (szCode, szMsg), flush=True)
         if szCode == "0000":
             Ebest.login_ok = True
         else:
@@ -118,7 +118,7 @@ class XS_event_handler:
 # Ebest: Exec
 class EbestExec:
     def __init__(self, events, server="demo"):
-        print("Ebest Exec")
+        print("EbestAPI Execution started")
         Ebest.events = events
         Ebest.server = server
 

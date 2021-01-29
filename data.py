@@ -35,7 +35,7 @@ class DataHandler:
         # monitor stock list 받아서 symbol table 만들기
         self.symbol_list = monitor_stocks
         self.symbol_cnt = len(self.symbol_list)
-        self.symbol_table = {symbol: i for i, symbol in enumerate(sorted(self.symbol_list))}
+        self.SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(self.symbol_list))}
         # symbol_time_table: 최근 shared_memory에 업데이트된 시간
         self.symbol_time_table = {symbol: {'시': '08', '분': '29'} for symbol in self.symbol_list}
 
@@ -123,7 +123,7 @@ class DataHandler:
 
     def update_shared_memory(self, data):
         code = data['code']
-        code_idx = self.symbol_table[code]
+        code_idx = self.SYMBOL_TABLE[code]
 
         # 초봉 업데이트(초봉이 아닌 틱봉인듯)
         # tick/hoga 모두 업데이트해준다 (dequeue하는 방식!!)

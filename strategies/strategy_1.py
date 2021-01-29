@@ -15,12 +15,12 @@ class Strategy_1(Strategy):
         self.short_window = 100
 
     def calc_signals(self):
-        print('calculating signal')
+        print('calculating signal...')
         cnt = 0
 
         bought = {}
         for s in self.symbol_list:
-            bought[s] = "OUT"
+            bought[s] = "OUT" # 나중엔 기존 포트 매입 종목 반영해야한다.
 
         while True:
             try:

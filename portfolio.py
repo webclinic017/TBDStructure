@@ -12,23 +12,25 @@ class Portfolio(BarClient):
         print('Portfolio started')
         self.port_queue = port_queue
         self.order_queue = order_queue
-        # self.execution_handler = ExecutionHandler(port_queue=port_queue)
+
+        self.symbol_list = monitor_stocks
+        self.initial_cap = initial_cap
+
+        # 상속하는 Bar 클래스의 SYMBOL_TABLE 바꿔주기!
+        self.bar.set_symbol_table({symbol: i for i, symbol in enumerate(sorted(monitor_stocks))})
+        print("Portfolio SYMBOL TABLE 잘들어왔나? : ", self.bar.SYMBOL_TABLE)
 
         self.all_positions = self.construct_all_positions()
         self.current_positions = self.construct_current_positions()
         self.all_holdings = self.construct_all_holdings()
         self.current_holdings = self.construct_current_holdings()
-        self.symbol_list = monitor_stocks
-        self.initial_cap = initial_cap
-        # 상속하는 Bar 클래스의 SYMBOL_TABLE 바꿔주기!
-        self.bar.set_symbol_table({symbol: i for i, symbol in enumerate(sorted(monitor_stocks))})
-        print("Portfolio SYMBOL TABLE 잘들어왔나? : ", self.bar.SYMBOL_TABLE)
 
     def construct_all_positions(self):
         """
         Constructs the positions list using the start_date to determine when the time index will begin
         종목별 보유수량
         """
+        # print(self.symbol_list)
         all_pos_dict = dict((k, v) for k, v in [(s, 0) for s in self.symbol_list])
         all_pos_dict["datetime"] = datetime.datetime.now()
         return [all_pos_dict]

@@ -72,4 +72,22 @@ application = get_wsgi_application()
 
 와 같이 해주면 Django 관련 setting 내용을 파일로 import하여 사용할 수 있게 된다.
 
-하지만, 직접 이렇게 Django setting을 import하는 것보다 DB 관련 작업은 모두 db.py에 정의하여 사용하도록 한다.
+하지만, 직접 이렇게 Django setting을 import하는 것보다 DB 관련 작업은 모두 db.py에 정의하여 사용하도록 한다.  
+
+추가로, Django 모델을 쉘로 디버깅하고 싶을 때는 일반 터미널로는 안 되고 Django에서 제공하는 shell을 사용하는게 편리하다.  
+
+```bash
+python manage.py shell
+```
+
+을 실행하면 Django settings가 import된 쉘을 실행해준다. 그렇게 하였다면:
+
+```python
+from core.models import OHLCV
+
+price_data = OHLCV.objects.filter(code='005930').all()
+```
+
+과 같은 Django 관련 스크립트를 사용할 수 있게 된다.  
+
+Reference: <https://docs.djangoproject.com/en/3.1/topics/db/models/>

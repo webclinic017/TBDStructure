@@ -88,7 +88,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
     def on_receive_order(self, order):
         print('receive order from main thread')
         print(order)
-        
+
         # order 주문 넣기
 
     def set_monitor_stocks_data(self):
@@ -140,6 +140,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
         except AttributeError:
             pass
 
+    # TR : 예수금상세현황요청
     def opw00001(self, rqname, trcode):
         # 매일 예수금을 변경하고, 투자 금액도 그에 따라 변경한다
         deposit = self.get_comm_data(trcode, rqname, 0, '예수금')
@@ -150,6 +151,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
         available_deposit = int(available_deposit)
         print('출금가능금액: {}'.format(available_deposit))
 
+    # TR : 계좌평가잔고내역요청
     def opw00018(self, rqname, trcode, prev_next):
         total_buy_amount = self.get_comm_data(trcode, rqname, 0, '총매입금액')
         total_buy_amount_result = int(total_buy_amount)
@@ -197,6 +199,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
         else:
             self.tr_event_loop.exit()
 
+    # TR : 실시간미체결요청
     def opt10075(self, rqname, trcode):
         rows = self.get_repeat_cnt(trcode, rqname)
 
@@ -236,6 +239,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
 
             print("미체결 종목 : %s" % self.remaining_orders[order_no])
 
+    #TR : 주식분봉차트요청
     def opt10080(self, rqname, trcode, prev_next):
         code = self.get_comm_data(trcode, rqname, 0, '종목코드')
         code = code.strip()
@@ -275,6 +279,7 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
         else:
             self.tr_event_loop.exit()
 
+    #TR : 업종일봉조회요청
     def opt20006(self, rqname, trcode, prev_next):
         code = self.get_comm_data(trcode, rqname, 0, '업종코드')
         code = code.strip()
@@ -291,12 +296,12 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             close = self.get_comm_data(trcode, rqname, i, "현재가")
             volume = self.get_comm_data(trcode, rqname, i, "거래량")
 
-            update_data = {"code": code, \
-                           "date": int(date), \
-                           "open": abs(float(openp)), \
-                           "high": abs(float(high)), \
-                           "low": abs(float(low)), \
-                           "close": abs(float(close)), \
+            update_data = {"code": code,
+                           "date": int(date),
+                           "open": abs(float(openp)),
+                           "high": abs(float(high)),
+                           "low": abs(float(low)),
+                           "close": abs(float(close)),
                            "volume": abs(int(volume))}
 
             tmp_data.append(update_data)

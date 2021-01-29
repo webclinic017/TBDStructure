@@ -7,55 +7,12 @@ import numpy as np
 
 
 class Strategy_1(Strategy):
-    def __init__(self, data_queue, port_queue, order_queue,
-                 tick_mem_name='', tick_mem_shape=(), tick_mem_dtype=None,
-                 hoga_mem_name='', hoga_mem_shape=(), hoga_mem_dtype=None,
-                 min_mem_name='', min_mem_shape=(), min_mem_dtype=None):
+    def __init__(self, data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, SYMBOL_TABLE):
         print('Strategy 1 started')
-        super().__init__(data_queue, port_queue, order_queue,
-                         tick_mem_name, tick_mem_shape, tick_mem_dtype,
-                         hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
-                         min_mem_name, min_mem_shape, min_mem_dtype)
+        super().__init__(data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, SYMBOL_TABLE)
 
-        self.symbol_list = ["005930", "096530"]
         self.long_window = 400
         self.short_window = 100
-
-    def get_latest_bar(self, symbol):
-        """
-        returns latest bar updated
-        """
-        raise NotImplementedError("Should implement get_latest_bar()")
-
-    def get_latest_n_bars(self, symbol, N=1):
-        """
-        :param N: Number of wanted bars
-        :return: the last N bars updated
-        """
-        raise NotImplementedError("Should implement get_latest_n_bars()")
-
-    def get_latest_bar_datetime(self, symbol):
-        """
-        :return: a Python datetime object for the last bar
-        """
-        raise NotImplementedError("Should implement get_latest_bar_datetime()")
-
-    def get_latest_bar_value(self, symbol, val_type):
-        """
-        :param val_type: one of OHLCV, Quotes, Open Interest(OI)
-        :return: returns one of values designated by val_type
-        """
-        raise NotImplementedError("Should implement get_latest_bar_value()")
-
-    def get_latest_n_bars_value(self, symbol, val_type, N=1):
-        """
-        :param symbol:
-        :param val_type: one of OHLCV, Quotes, Open Interest(OI)
-        :param N: Number of bars considered
-        :return: returns one of N-bars values designated by val_type
-        """
-        raise NotImplementedError("Should implement get_latest_n_bars_value()")
-
 
     def calc_signals(self):
         print('calculating signal')
@@ -114,4 +71,5 @@ class Strategy_1(Strategy):
                             self.port_queue.put(signal)
 
             except Queue.empty:
+                print("Signal: Data Queue Empty")
                 continue

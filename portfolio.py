@@ -1,22 +1,28 @@
 from execution import ExecutionHandler
+from event import OrderEvent
+from bar import Bar
 import datetime
 import pandas as pd
 
 
-class Portfolio:
-    def __init__(self, port_queue, order_queue, initial_cap, symbol_list):
+class Portfolio(Bar):
+    def __init__(self, port_queue, order_queue, initial_cap, monitor_stocks, SYMBOL_TABLE):
+        # super().__init__(Bar.SYMBOL_TABLE)
+        super().__init__(SYMBOL_TABLE)
         print('Portfolio started')
         self.port_queue = port_queue
         self.order_queue = order_queue
-
-        self.execution_handler = ExecutionHandler(port_queue=port_queue)
+        # self.execution_handler = ExecutionHandler(port_queue=port_queue)
 
         self.all_positions = self.construct_all_positions()
         self.current_positions = self.construct_current_positions()
         self.all_holdings = self.construct_all_holdings()
         self.current_holdings = self.construct_current_holdings()
-        self.symbol_list = symbol_list
+        self.symbol_list = monitor_stocks
         self.initial_cap = initial_cap
+        # 상속하는 Bar 클래스의 SYMBOL_TABLE 바꿔주기!
+        Bar.SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(monitor_stocks))}
+        print("Portfolio SYMBOL TABLE 잘들어왔나? : ", Bar.SYMBOL_TABLE)
 
     def construct_all_positions(self):
         """
@@ -58,41 +64,6 @@ class Portfolio:
         return d  # bracket 없는 것만 construct_all_holdings() 와 다름
 
         # live trading에서는 Brokerage에서 바로 요청 후 반영가능! backtesting은 계산 필요.
-
-    def get_latest_bar(self, symbol):
-        """
-        returns latest bar updated
-        """
-        raise NotImplementedError("Should implement get_latest_bar()")
-
-    def get_latest_n_bars(self, symbol, N=1):
-        """
-        :param N: Number of wanted bars
-        :return: the last N bars updated
-        """
-        raise NotImplementedError("Should implement get_latest_n_bars()")
-
-    def get_latest_bar_datetime(self, symbol):
-        """
-        :return: a Python datetime object for the last bar
-        """
-        raise NotImplementedError("Should implement get_latest_bar_datetime()")
-
-    def get_latest_bar_value(self, symbol, val_type):
-        """
-        :param val_type: one of OHLCV, Quotes, Open Interest(OI)
-        :return: returns one of values designated by val_type
-        """
-        raise NotImplementedError("Should implement get_latest_bar_value()")
-
-    def get_latest_n_bars_value(self, symbol, val_type, N=1):
-        """
-        :param symbol:
-        :param val_type: one of OHLCV, Quotes, Open Interest(OI)
-        :param N: Number of bars considered
-        :return: returns one of N-bars values designated by val_type
-        """
-        raise NotImplementedError("Should implement get_latest_n_bars_value()")
 
     def update_timeindex(self, event):
         """
@@ -213,7 +184,7 @@ class Portfolio:
         self.current_holdings[fill.symbol] += cost
         self.current_holdings['commission'] += fill.commission #수수료
         self.current_holdings["cash"] -= cost + fill.commission
-        self.current_holdings['total_value'] -= cost + fill.commission #update_timeindex에서 q * current_price 된 평가금액 얹어줌.
+        self.current_holdings['total_value'] -= cost + fill.commission #update_timeindex에서 q * current_price 된 평가금액 얹어줌. # 필요없는 부분인것 같기도..일부러 cash랑 맞춰줌
 
     def update_fill(self, event):
         """
@@ -237,11 +208,14 @@ class Portfolio:
                 if event.type == 'MARKET':
                     self.update_timeindex(event)
 
-                if event.type == 'SIGNAL':
+                elif event.type == 'SIGNAL':
                     self.update_signal(event)
 
-                if event.type == 'ORDER':
-                    self.execution_handler.execute_order(event)
+                elif event.type == 'ORDER':
+                    self.order_queue.put(event)
 
-                if event.type == 'FILL':
+                elif event.type == 'FILL':
                     self.update_fill(event)
+
+                else:
+                    print(f'Unknown Event type: {event.type}')

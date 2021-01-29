@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 from .errcode import *
 from .realtype import *
 
-sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+# sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 SLEEP_TIME = 3.8
 
@@ -159,7 +159,7 @@ class KiwoomBaseAPI(QMainWindow):
     def get_min_ohlcv(self, code, prev_next='0'):
         time.sleep(SLEEP_TIME)
         self.set_input_value("종목코드", code)
-        self.set_input_value("틱범위", '1')
+        self.set_input_value("틱범위", "1")
         self.set_input_value("수정주가구분", "0")
         self.comm_rq_data("주식분봉차트조회", "opt10080", prev_next, '2003')
 

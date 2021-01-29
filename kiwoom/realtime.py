@@ -4,8 +4,9 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import *
 
 from .base import KiwoomBaseAPI
+from db import PriceDB
 
-sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+# sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 
 class OrderThread(QThread):
@@ -26,25 +27,64 @@ class OrderThread(QThread):
 
 class KiwoomRealtimeAPI(KiwoomBaseAPI):
 
-    def __init__(self, api_queue, port_queue, order_queue, monitor_stocks):
+    def __init__(self, api_queue, port_queue, order_queue, monitor_stocks, mode='trade', **kwargs):
+        """
+        mode: trade / api
+        
+        --> api모드로 설정하면 데이터 수집을 진행할 수 있다.
+            분봉 데이터 수집 / 산업 데이터 수집 등
+        """
         super().__init__(monitor_stocks)
+
+        self.mode = mode
 
         self.api_queue = api_queue
         self.port_queue = port_queue
         self.order_queue = order_queue
 
         print('Initializing Kiwoom API')
-        self.get_account_num()
-        self.get_account_info()
-        self.get_portfolio_stocks()
-        self.get_remaining_orders()
-        self.set_monitor_stocks_data()
-        self.set_realtime_monitor_stocks()
+        if self.mode == 'trade':
+            self.get_account_num()
+            self.get_account_info()
+            self.get_portfolio_stocks()
+            self.get_remaining_orders()
+            self.set_monitor_stocks_data()
+            self.set_realtime_monitor_stocks()
 
-        self.worker = OrderThread(self.order_queue)
-        self.worker.order.connect(self.on_receive_order)
-        self.worker.start()
+            self.worker = OrderThread(self.order_queue)
+            self.worker.order.connect(self.on_receive_order)
+            self.worker.start()
 
+        if self.mode == 'api':
+            self.db = PriceDB()
+            self.request_minute_data(**kwargs)
+
+    # [API mode function]
+    def request_minute_data(self, asset_type='stocks', data_cnt=1):
+        """
+        :param asset_type: stocks, futures, all
+        :param data_cnt: 900개 단위. 즉, 1이면 900
+        """
+        self.request_break_pt = data_cnt
+
+        if asset_type == 'stocks':
+            codelist = self.total_stocks_list
+        elif asset_type == 'futures':
+            codelist = self.total_futures_list
+        else:
+            codelist = self.stocks_futures_code
+
+        cnt = 1
+        total_cnt = len(codelist)
+        for code in codelist:
+            print(f'[{cnt}/{total_cnt}] {code}: Request Processing')
+            self.get_min_ohlcv(code)
+            min_data = self.monitor_stocks_data[code]
+            self.db.save_minute_data(code, min_data)
+            del self.monitor_stocks_data[code]
+            cnt += 1
+
+    # [TRADE mode functions]
     def on_receive_order(self, order):
         print('receive order from main thread')
         print(order)
@@ -212,12 +252,12 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             close = self.get_comm_data(trcode, rqname, i, "현재가")
             volume = self.get_comm_data(trcode, rqname, i, "거래량")
 
-            update_data = {"code": code, \
-                           "date": int(date), \
-                           "open": abs(int(openp)), \
-                           "high": abs(int(high)), \
-                           "low": abs(int(low)), \
-                           "close": abs(int(close)), \
+            update_data = {"code": code,
+                           "date": int(date),
+                           "open": abs(int(openp)),
+                           "high": abs(int(high)),
+                           "low": abs(int(low)),
+                           "close": abs(int(close)),
                            "volume": abs(int(volume))}
 
             tmp_data.append(update_data)
@@ -275,6 +315,9 @@ class KiwoomRealtimeAPI(KiwoomBaseAPI):
             self.tr_event_loop.exit()
 
     def receive_real_data(self, code, real_type, real_data):
+
+        if self.mode == 'api':
+            return
 
         if real_type == "장시작시간":
             fid = self.realType.REALTYPE[real_type]['장운영구분']

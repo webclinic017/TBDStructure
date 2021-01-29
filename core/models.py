@@ -53,3 +53,18 @@ class PortHistory(models.Model):
 
     def __str__(self):
         return f'{self.user.username} {self.date} {self.strategy} {self.trade_stock}'
+
+
+class OHLCV(models.Model):
+    code = models.CharField(max_length=20)
+    name = models.CharField(max_length=50, blank=True, null=True)
+    date = models.CharField(max_length=20)
+    open_prc = models.IntegerField()
+    high_prc = models.IntegerField()
+    low_prc = models.IntegerField()
+    close_prc = models.IntegerField()
+    volume = models.IntegerField()
+    cum_volume = models.IntegerField(blank=True, null=True)
+
+    def __str__(self):
+        return f'{self.code} {self.date} {self.close_prc}'

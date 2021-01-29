@@ -1,5 +1,7 @@
 import os
+import sqlite3
 import datetime
+import pandas as pd
 from django.core.wsgi import get_wsgi_application
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings")
@@ -94,7 +96,13 @@ class UserDB:
 class PriceDB:
 
     def __init__(self):
+        """
+        Django 모델을 통해서 정의내린 테이블로 엑세스하여 데이터를 가져올 수 있다.
+
+        table명을 확인하는 방법: SELECT name FROM sqlite_master WHERE type='table';
+        """
         print('Initializing PriceDB')
+        self.conn = sqlite3.connect('db.sqlite3')
 
     def save_minute_data(self, code: str, data: list):
         print(f'Saving {code} data to DB')
@@ -117,10 +125,32 @@ class PriceDB:
         OHLCV.objects.bulk_create(p_d)
         print(f'Save Complete. Saved: {len(p_d)} data pts.')
 
+    def get_minute_data(self, code: str or list, pivot=False, pivot_on='close_prc'):
+        if type(code) == str:
+            code_query = f"'{code}'"
+        elif type(code) == list:
+            code_query = ','.join([f"'{c}'" for c in code])
+
+        df = pd.read_sql(f"""
+        SELECT code, date, open_prc, high_prc, low_prc, close_prc, volume
+        FROM core_ohlcv WHERE code IN ({code_query});
+        """, self.conn)
+
+        if pivot:
+            return pd.pivot_table(df, values='close_prc', index='date', columns='code')
+        else:
+            return df
+
 
 if __name__ == '__main__':
+    # monitor stocks (universe) 설정하는 방법
     user = UserDB('ppark9553@gmail.com')
     user.set_strategy('test_strategy')
     u = user.universe()
     # user.remove_from_universe(symbol='005930')
     print(user.universe())
+
+    # 가격 정보를 가져오는 방법 + pivot_table 만드는 방법
+    db = PriceDB()
+    price = db.get_minute_data(['005930', '000020', '066570'], pivot=True)
+    print(price)

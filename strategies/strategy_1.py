@@ -7,15 +7,9 @@ import numpy as np
 
 
 class Strategy_1(Strategy):
-    def __init__(self, data_queue, port_queue, order_queue, strategy_universe,
-                 tick_mem_name='', tick_mem_shape=(), tick_mem_dtype=None,
-                 hoga_mem_name='', hoga_mem_shape=(), hoga_mem_dtype=None,
-                 min_mem_name='', min_mem_shape=(), min_mem_dtype=None):
+    def __init__(self, data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, SYMBOL_TABLE):
         print('Strategy 1 started')
-        super().__init__(data_queue, port_queue, order_queue, strategy_universe,
-                         tick_mem_name, tick_mem_shape, tick_mem_dtype,
-                         hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
-                         min_mem_name, min_mem_shape, min_mem_dtype)
+        super().__init__(data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, SYMBOL_TABLE)
 
         self.long_window = 400
         self.short_window = 100

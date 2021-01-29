@@ -12,9 +12,7 @@ class Port(Bar):
         self.data2 = "goodbyrrr"
 
     def say_hello(self):
-        print(self.data1)
+        print(Bar.__init__(self).data1)
 
     def say_bye(self):
         print(self.data2)
-
-

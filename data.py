@@ -5,6 +5,7 @@ import pandas as pd
 from multiprocessing import shared_memory
 from event import MarketEvent
 from bar import Bar
+import datetime
 
 second_table = {
     date: i for i, date in
@@ -43,7 +44,7 @@ class DataHandler:
         # second_cnt가 너무 커지기 때문에 dequeue하는 방식을 취하도록 한다.
         # 추후 RAM이 좋아지거나 전략을 수정할 경우 다른 방식을 고려해본다.
         # second_cnt = len(second_table.keys())
-        second_cnt = 1000 # 1000초까지만 데이터를 홀딩한다 (임의로 정한 timeframe)
+        second_cnt = 100 # 1000초까지만 데이터를 홀딩한다 (임의로 정한 timeframe)
 
         # [초봉 #1] tick array
         # current_price, cum_volume
@@ -108,7 +109,7 @@ class DataHandler:
             low_price=low,
             cum_volume=cum_volume
         )
-
+        print(m_e)
         for q in self.queues:
             q.put(m_e)
 
@@ -127,27 +128,33 @@ class DataHandler:
         # 초봉 업데이트(초봉이 아닌 틱봉인듯)
         # tick/hoga 모두 업데이트해준다 (dequeue하는 방식!!)
         if data['type'] == 'tick':
-            trade_date = data['trade_date']
+            # trade_date = data['trade_date']
             # date_idx = second_table[trade_date] --> 이제 date_idx는 없다
             # self.sec_mem_array[code_idx, date_idx, :2] = [data['current_price'], data['cum_volume']]
             prev_upper = self.tick_mem_array[code_idx, 1:, :]
             self.tick_mem_array[code_idx, 0:-1, :] = prev_upper # 위의 한줄을 제외하고 위로 올린다
             self.tick_mem_array[code_idx, -1, :] = [data['current_price'], data['cum_volume']] # 마지막줄에 새로 들어온 데이터를 넣는다
+            print("tick")
+            print(self.tick_mem_array)
+            print("####################")
         elif data['type'] == 'hoga':
-            trade_date = data['hoga_date']
+            # trade_date = data['hoga_date']
             prev_upper = self.hoga_mem_array[code_idx, 1:, :]
             self.hoga_mem_array[code_idx, 0:-1, :] = prev_upper
             self.hoga_mem_array[code_idx, -1, :] = [data.get(field) if data.get(field) is not None else 0
                                                     for field in FIELD_TABLE.keys()
                                                     if field not in ['current_price', 'cum_volume']] # 여기 나중에 속도 Optimize 하기, 동산 Dict 페이지 참조.
-
+            print("hoga")
+            print(self.hoga_mem_array)
+            print("####################")
         if data['type'] == 'tick':
             # 분봉 업데이트
             # 틱데이터를 초단위로 업데이트하였다면 분단위로 업데이트도 따로 진행한다.
             # 분봉 업데이트는 완료후 소켓 연결로 업데이트 내용을 publish해준다.
             # 모든 subscriber들은 변경된 데이터를 받을 수 있다.
-            hour = trade_date[:2]
-            minute = trade_date[2:4]
+            trade_date = datetime.datetime.now()
+            hour = trade_date.hour
+            minute = trade_date.minute
             second = '00'
             min_date = f'{hour}{minute}{second}'
             date_idx = minute_table[min_date]

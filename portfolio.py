@@ -7,11 +7,11 @@ import pandas as pd
 
 class Portfolio(Bar):
     def __init__(self, port_queue, order_queue, initial_cap, monitor_stocks, SYMBOL_TABLE):
+        # super().__init__(Bar.SYMBOL_TABLE)
         super().__init__(SYMBOL_TABLE)
         print('Portfolio started')
         self.port_queue = port_queue
         self.order_queue = order_queue
-
         # self.execution_handler = ExecutionHandler(port_queue=port_queue)
 
         self.all_positions = self.construct_all_positions()
@@ -20,10 +20,9 @@ class Portfolio(Bar):
         self.current_holdings = self.construct_current_holdings()
         self.symbol_list = monitor_stocks
         self.initial_cap = initial_cap
-
         # 상속하는 Bar 클래스의 SYMBOL_TABLE 바꿔주기!
-        self.SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(monitor_stocks))}
-        print("Portfolio SYMBOL TABLE 잘들어왔나? : ", self.SYMBOL_TABLE)
+        Bar.SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(monitor_stocks))}
+        print("Portfolio SYMBOL TABLE 잘들어왔나? : ", Bar.SYMBOL_TABLE)
 
     def construct_all_positions(self):
         """

@@ -3,9 +3,7 @@
 import numpy as np
 import pandas as pd
 from multiprocessing import shared_memory
-
 from event import MarketEvent
-
 from bar import Bar
 
 second_table = {
@@ -141,7 +139,7 @@ class DataHandler:
             self.hoga_mem_array[code_idx, 0:-1, :] = prev_upper
             self.hoga_mem_array[code_idx, -1, :] = [data.get(field) if data.get(field) is not None else 0
                                                     for field in FIELD_TABLE.keys()
-                                                    if field not in ['current_price', 'cum_volume']]
+                                                    if field not in ['current_price', 'cum_volume']] # 여기 나중에 속도 Optimize 하기, 동산 Dict 페이지 참조.
 
         if data['type'] == 'tick':
             # 분봉 업데이트

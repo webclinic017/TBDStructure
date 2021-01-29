@@ -20,7 +20,6 @@ class Strategy_1(Strategy):
         self.long_window = 400
         self.short_window = 100
 
-        self.get_latest_bar_value()
     def calc_signals(self):
         print('calculating signal')
         cnt = 0

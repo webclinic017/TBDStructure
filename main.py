@@ -13,14 +13,8 @@ from ebest import ebest_data, ebest_execution
 from bar import Bar
 
 
-def strategy_process(strategy_cls, data_queue, port_queue, order_queue, strategy_universe,
-                     tick_mem_name, tick_mem_shape, tick_mem_dtype,
-                     hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
-                     min_mem_name, min_mem_shape, min_mem_dtype):
-    s = strategy_cls(data_queue, port_queue, order_queue, strategy_universe,
-                     tick_mem_name, tick_mem_shape, tick_mem_dtype,
-                     hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
-                     min_mem_name, min_mem_shape, min_mem_dtype)
+def strategy_process(strategy_cls, data_queue, port_queue, order_queue, strategy_universe, monitor_stocks):
+    s = strategy_cls(data_queue, port_queue, order_queue, strategy_universe, monitor_stocks)
     s.calc_signals()
 
 
@@ -71,11 +65,8 @@ if __name__ == '__main__':
     source = 'ebest'
     initial_cap = 1000000
     strategy1_universe = ['005930', '096530']
-    monitor_stocks = ['005930', '000020', '000030', '096530'] # ["111R2000", "1CLR2000"] 삼전, 씨젠
-
-    # Symbol & Field Tables : Bar class 보내줌
-    symbol_table = {symbol: i for i, symbol in enumerate(sorted(monitor_stocks))}
-    Bar.SYMBOL_TABLE = symbol_table
+    strategy2_universe = ['000020', '000030']
+    monitor_stocks = list(set(strategy1_universe + strategy2_universe)) # ["111R2000", "1CLR2000"] 삼전, 씨젠
 
     st = [Strategy_1, Strategy_2]
 

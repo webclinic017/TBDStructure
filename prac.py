@@ -1,14 +1,20 @@
-class A:
-    F = 10
+from multiprocessing import Process
 
-# class C:
+class Bar:
+    def __init__(self):
+        self.data1 = 'hello'
+        self.data2 = 'bye'
+
+class Port(Bar):
+    def __init__(self):
+        super().__init__()
+        self.a = 1
+        self.data2 = "goodbyrrr"
+
+    def say_hello(self):
+        print(self.data1)
+
+    def say_bye(self):
+        print(self.data2)
 
 
-class B(A):
-    a = 10
-    print(A.F)
-    A.F = 199
-    print(A.F)
-
-class C(A):
-    print(A.F)

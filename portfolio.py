@@ -1,14 +1,14 @@
 from execution import ExecutionHandler
 from event import OrderEvent
-from bar import Bar
+from bar import BarClient
 import datetime
 import pandas as pd
 
 
-class Portfolio(Bar):
-    def __init__(self, port_queue, order_queue, initial_cap, monitor_stocks, SYMBOL_TABLE):
+class Portfolio(BarClient):
+    def __init__(self, port_queue, order_queue, initial_cap, monitor_stocks, bar):
         # super().__init__(Bar.SYMBOL_TABLE)
-        super().__init__(SYMBOL_TABLE)
+        super().__init__(bar)
         print('Portfolio started')
         self.port_queue = port_queue
         self.order_queue = order_queue
@@ -21,8 +21,8 @@ class Portfolio(Bar):
         self.symbol_list = monitor_stocks
         self.initial_cap = initial_cap
         # 상속하는 Bar 클래스의 SYMBOL_TABLE 바꿔주기!
-        Bar.SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(monitor_stocks))}
-        print("Portfolio SYMBOL TABLE 잘들어왔나? : ", Bar.SYMBOL_TABLE)
+        self.bar.set_symbol_table({symbol: i for i, symbol in enumerate(sorted(monitor_stocks))})
+        print("Portfolio SYMBOL TABLE 잘들어왔나? : ", self.bar.SYMBOL_TABLE)
 
     def construct_all_positions(self):
         """

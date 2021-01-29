@@ -39,8 +39,8 @@ def data_handler_process(source, monitor_stocks, data_queues, port_queue, api_qu
     d.start_event_loop()
 
 
-def portfolio_process(port_queue, order_queue, initial_cap, monitor_stocks, SYMBOL_TABLE):
-    e = Portfolio(port_queue, order_queue, initial_cap, monitor_stocks, SYMBOL_TABLE)
+def portfolio_process(port_queue, order_queue, initial_cap, monitor_stocks, bar):
+    e = Portfolio(port_queue, order_queue, initial_cap, monitor_stocks, bar)
     e.start_event_loop()
 
 
@@ -97,14 +97,19 @@ if __name__ == '__main__':
 
     SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(monitor_stocks))}
 
+    # shared_memory를 가지고 있는 Bar 객체를 생성
+    bar = Bar(None, tick_mem_name, tick_mem_shape, tick_mem_dtype,
+              hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
+              min_mem_name, min_mem_shape, min_mem_dtype)
+
     # [Process #2]
     # Portfolio 프로세스 실행
-    pp = Process(target=portfolio_process, args=(p_q, o_q, initial_cap, monitor_stocks, SYMBOL_TABLE))
+    pp = Process(target=portfolio_process, args=(p_q, o_q, initial_cap, monitor_stocks, bar))
     pp.start()
 
     # [Process #3+]
     # Strategy 프로세스 실행
-    s1 = Process(target=strategy_process, args=(st[0], d_q[0], p_q, o_q, strategy1_universe, monitor_stocks, SYMBOL_TABLE))
+    s1 = Process(target=strategy_process, args=(st[0], d_q[0], p_q, o_q, strategy1_universe, monitor_stocks, bar))
     s1.start()
 
     # s2 = Process(target=strategy_process, args=(st[i], d_q[i], p_q, o_q, strategy2_universe,

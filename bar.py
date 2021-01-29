@@ -1,6 +1,25 @@
-from multiprocessing import shared_memory
-import numpy as np
 import datetime
+import numpy as np
+from multiprocessing import shared_memory
+
+
+class BarClient:
+    """
+    Bar 클래스를 사용하는 클래스가 상속받을 parent 클래스
+    """
+
+    def __init__(self, bar):
+        """
+        Bar 클래스에서 정의된 함수들로 override해주기
+        """
+        self.bar = bar
+
+        self.get_latest_bar = bar.get_latest_bar
+        self.get_latest_n_bars = bar.get_latest_n_bars
+        self.get_latest_bar_datetime = bar.get_latest_bar_datetime
+        self.get_latest_bar_value = bar.get_latest_bar_value
+        self.get_latest_n_bars_value = bar.get_latest_n_bars_value
+
 
 class Bar:
     FIELD_TABLE = {
@@ -55,7 +74,8 @@ class Bar:
     }
     FIELD_TABLE = {field: i for i, field in enumerate(list(FIELD_TABLE.keys()))}
 
-    def __init__(self, SYMBOL_TABLE, tick_mem_name='', tick_mem_shape=(), tick_mem_dtype=None,
+    def __init__(self, SYMBOL_TABLE=None,
+                 tick_mem_name='', tick_mem_shape=(), tick_mem_dtype=None,
                  hoga_mem_name='', hoga_mem_shape=(), hoga_mem_dtype=None,
                  min_mem_name='', min_mem_shape=(), min_mem_dtype=None):
 
@@ -74,6 +94,9 @@ class Bar:
         self.SYMBOL_TABLE = None
 
         self.latest_symbol_data = np.dstack([self.tick_mem_array, self.hoga_mem_array])
+
+    def set_symbol_table(self, symbol_table):
+        self.SYMBOL_TABLE = symbol_table
 
     def get_latest_bar(self, symbol):
         """

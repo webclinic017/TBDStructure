@@ -7,7 +7,7 @@ import threading
 from ebest import ebest_execution
 
 class ExecutionHandler:
-    def __init__(self, port_queue, order_queue, source='backtest'):
+    def __init__(self, port_queue, order_queue, server="demo", source='backtest'):
         """
         source: backtest, kiwoom, ebest, binance etc.
         """
@@ -17,8 +17,7 @@ class ExecutionHandler:
         self.source = source
 
         if self.source == "ebest":
-            ebest_execution.EbestExec(self.port_queue, server="demo") # FillEvent는 XR_event_handler 참조
-            # EbestExec(self.port_queue, server="demo") # FillEvent는 XR_event_handler 참조
+            ebest_execution.EbestExec(self.port_queue, server=server) # FillEvent는 XR_event_handler 참조, port_queue로 Fill 보냄
 
     def execute_order(self, event):
         if self.source == 'backtest':

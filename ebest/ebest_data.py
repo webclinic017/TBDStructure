@@ -28,6 +28,7 @@ class MyObjects:
 
     #### 요청 함수 모음
     tr_event = None  # TR요청에 대한 API 정보
+    real_event_market = None
     real_event_KOSPI = None  # 실시간 요청에 대한 API 정보
     real_event__KOSPI_hoga = None  # 실시간 요청에 대한 API 정보
     real_event_KOSDAQ = None  # 실시간 요청에 대한 API 정보
@@ -46,7 +47,21 @@ class XR_event_handler:
 
     def OnReceiveRealData(self, code):
 
-        if code == "K3_": # KOSDAQ 주식체결
+        if code == "JIF":  # 장운영정보
+            jangubun = self.GetFieldData("OutBlock", "jangubun")
+            jstatus = self.GetFieldData("OutBlock", "jstatus")
+
+            print("jangubun: ", jangubun, "jstatus: ", jstatus)
+
+            if jangubun == "1" and jstatus == "21":
+                market_open = {"type": "Market_Open"}
+                MyObjects.api_queue.put(market_open)
+
+            if jangubun == "1" and jstatus == "31":
+                market_close = {"type": "Market_Close"}
+                MyObjects.api_queue.put(market_close)
+
+        elif code == "K3_": # KOSDAQ 주식체결
             tick_data = {"type": "tick",
                          "code": self.GetFieldData("OutBlock", "shcode"),
                          "datetime": self.GetFieldData("OutBlock", "chetime"),
@@ -262,6 +277,12 @@ class Main:
         # ####################################
 
         print(MyObjects.monitor_stocks)
+
+        # 장운영정보
+        MyObjects.real_event_market = win32com.client.DispatchWithEvents("XA_DataSet.XAReal", XR_event_handler)
+        MyObjects.real_event_market.ResFileName = "C:/eBEST/xingAPI/Res/JIF.res"
+        MyObjects.real_event_market.SetFieldData("InBlock", "jangubun", '0')
+        MyObjects.real_event_market.AdviseRealData()
 
         # KOSPI
         MyObjects.real_event_KOSPI = win32com.client.DispatchWithEvents("XA_DataSet.XAReal", XR_event_handler)

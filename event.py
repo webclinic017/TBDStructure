@@ -1,9 +1,9 @@
 class Event(object):
     pass
 
-class MarketEvent(Event):
+class MinuteEvent(Event):
     def __init__(self, symbol, date, current_price, open_price, high_price, low_price, cum_volume):
-        self.type = 'MARKET'
+        self.type = 'MINUTE'
         self.symbol = symbol
         self.date = date
         self.current_price = current_price
@@ -11,6 +11,14 @@ class MarketEvent(Event):
         self.high_price = high_price
         self.low_price = low_price
         self.cum_volume = cum_volume
+
+class SecondEvent(Event):
+    def __init__(self):
+        self.type = 'SECOND'
+        # self.symbol = symbol
+        # self.date = date
+        # self.current_price = current_price
+        # self.cum_volume = cum_volume
 
 class SignalEvent(Event):
     def __init__(self, strategy_id, symbol, datetime, signal_type, strength, cur_price):

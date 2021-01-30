@@ -7,9 +7,9 @@ import numpy as np
 
 
 class Strategy_1(Strategy):
-    def __init__(self, data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, SYMBOL_TABLE):
+    def __init__(self, data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, bar):
         print('Strategy 1 started')
-        super().__init__(data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, SYMBOL_TABLE)
+        super().__init__(data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, bar)
 
         self.long_window = 400
         self.short_window = 100

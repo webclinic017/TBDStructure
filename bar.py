@@ -1,6 +1,7 @@
 import datetime
 import numpy as np
 from multiprocessing import shared_memory
+import pandas as pd
 
 
 class BarClient:
@@ -24,47 +25,50 @@ class BarClient:
 class Bar:
     FIELD_TABLE = {
         'current_price': None,
-        'cum_volume': None,
+        'open': None,
+        'high': None,
+        'low': None,
+        'volume': None,
         'sell_hoga1': None,
         'sell_hoga2': None,
         'sell_hoga3': None,
         'sell_hoga4': None,
         'sell_hoga5': None,
-        'sell_hoga6': None,
-        'sell_hoga7': None,
-        'sell_hoga8': None,
-        'sell_hoga9': None,
-        'sell_hoga10': None,
+        # 'sell_hoga6': None,
+        # 'sell_hoga7': None,
+        # 'sell_hoga8': None,
+        # 'sell_hoga9': None,
+        # 'sell_hoga10': None,
         'buy_hoga1': None,
         'buy_hoga2': None,
         'buy_hoga3': None,
         'buy_hoga4': None,
         'buy_hoga5': None,
-        'buy_hoga6': None,
-        'buy_hoga7': None,
-        'buy_hoga8': None,
-        'buy_hoga9': None,
-        'buy_hoga10': None,
+        # 'buy_hoga6': None,
+        # 'buy_hoga7': None,
+        # 'buy_hoga8': None,
+        # 'buy_hoga9': None,
+        # 'buy_hoga10': None,
         'sell_hoga1_stack': None,
         'sell_hoga2_stack': None,
         'sell_hoga3_stack': None,
         'sell_hoga4_stack': None,
         'sell_hoga5_stack': None,
-        'sell_hoga6_stack': None,
-        'sell_hoga7_stack': None,
-        'sell_hoga8_stack': None,
-        'sell_hoga9_stack': None,
-        'sell_hoga10_stack': None,
+        # 'sell_hoga6_stack': None,
+        # 'sell_hoga7_stack': None,
+        # 'sell_hoga8_stack': None,
+        # 'sell_hoga9_stack': None,
+        # 'sell_hoga10_stack': None,
         'buy_hoga1_stack': None,
         'buy_hoga2_stack': None,
         'buy_hoga3_stack': None,
         'buy_hoga4_stack': None,
         'buy_hoga5_stack': None,
-        'buy_hoga6_stack': None,
-        'buy_hoga7_stack': None,
-        'buy_hoga8_stack': None,
-        'buy_hoga9_stack': None,
-        'buy_hoga10_stack': None
+        # 'buy_hoga6_stack': None,
+        # 'buy_hoga7_stack': None,
+        # 'buy_hoga8_stack': None,
+        # 'buy_hoga9_stack': None,
+        # 'buy_hoga10_stack': None
         # 'total_buy_hoga_stack': None,
         # 'total_sell_hoga_stack': None,
         # 'net_buy_hoga_stack': None,
@@ -74,48 +78,50 @@ class Bar:
     }
     FIELD_TABLE = {field: i for i, field in enumerate(list(FIELD_TABLE.keys()))}
 
-    def __init__(self, SYMBOL_TABLE=None,
-                 tick_mem_name='', tick_mem_shape=(), tick_mem_dtype=None,
-                 hoga_mem_name='', hoga_mem_shape=(), hoga_mem_dtype=None,
-                 min_mem_name='', min_mem_shape=(), min_mem_dtype=None):
+    minute_table = {
+        date: i for i, date in
+        enumerate([d.strftime('%H%M%S') for d in pd.date_range('08:30', '15:30', freq='T')])
+    }
 
-        self.tick_mem_shape = tick_mem_shape
-        self.tick_mem = shared_memory.SharedMemory(name=tick_mem_name)
-        self.tick_mem_array = np.ndarray(shape=tick_mem_shape, dtype=tick_mem_dtype, buffer=self.tick_mem.buf)
+    def __init__(self, sec_mem_name='', sec_mem_shape=(), sec_mem_dtype=None):
 
-        self.hoga_mem_shape = hoga_mem_shape
-        self.hoga_mem = shared_memory.SharedMemory(name=hoga_mem_name)
-        self.hoga_mem_array = np.ndarray(shape=hoga_mem_shape, dtype=hoga_mem_dtype, buffer=self.hoga_mem.buf)
-
-        self.min_mem_shape = min_mem_shape
-        self.min_mem = shared_memory.SharedMemory(name=min_mem_name)
-        self.min_mem_array = np.ndarray(shape=min_mem_shape, dtype=min_mem_dtype, buffer=self.min_mem.buf)
+        self.sec_mem_shape = sec_mem_shape
+        self.sec_mem = shared_memory.SharedMemory(name=sec_mem_name)
+        self.sec_mem_array = np.ndarray(shape=sec_mem_shape, dtype=sec_mem_dtype, buffer=self.sec_mem.buf)
 
         self.SYMBOL_TABLE = None
-
-        self.latest_symbol_data = np.dstack([self.tick_mem_array, self.hoga_mem_array])
 
     def set_symbol_table(self, symbol_table):
         self.SYMBOL_TABLE = symbol_table
 
-    def get_latest_bar(self, symbol):
+    def get_latest_bar(self, symbol, freq):
         """
         :return: the last bar from the latest_symbol list.
         """
         try:
-            bars_list = self.latest_symbol_data[self.SYMBOL_TABLE[symbol]]
+            if freq == "second":
+                latest_symbol_data = np.dstack([self.tick_mem_array, self.hoga_mem_array])
+                bars_list = latest_symbol_data[self.SYMBOL_TABLE[symbol]]
+                return bars_list[-1]
+            elif freq == "minute":
+                bars_list = self.min_mem_array[self.SYMBOL_TABLE[symbol]]
+                hour = datetime.datetime.now().hour
+                ex_minute = datetime.datetime.now().minute - 1
+                min_date = f'{hour}{ex_minute}00'
+                date_idx = self.minute_table[min_date]
+                return bars_list[date_idx, :]
         except KeyError:
             print("Symbol is not available!!")
             raise
-        else:
-            return bars_list[-1]
+
 
     def get_latest_n_bars(self, symbol, N=1):
         """
         :return: latest n bars or n-k if less available
         """
         try:
-            bars_list = self.latest_symbol_data[self.SYMBOL_TABLE[symbol]]
+            latest_symbol_data = np.dstack([self.tick_mem_array, self.hoga_mem_array])
+            bars_list = latest_symbol_data[self.SYMBOL_TABLE[symbol]]
         except KeyError:
             print("Symbol is not available!!")
             raise
@@ -143,7 +149,8 @@ class Bar:
         :return: returns one of values designated by val_type
         """
         try:
-            bars_list = self.latest_symbol_data[self.SYMBOL_TABLE[symbol]]
+            latest_symbol_data = np.dstack([self.tick_mem_array, self.hoga_mem_array])
+            bars_list = latest_symbol_data[self.SYMBOL_TABLE[symbol]]
         except KeyError:
             print("Symbol is not available!!")
             raise
@@ -157,7 +164,8 @@ class Bar:
         :return: returns one of N-bars values designated by val_type
         """
         try:
-            bars_list = self.latest_symbol_data[self.SYMBOL_TABLE[symbol]]
+            latest_symbol_data = np.dstack([self.tick_mem_array, self.hoga_mem_array])
+            bars_list = latest_symbol_data[self.SYMBOL_TABLE[symbol]]
         except KeyError:
             print("Symbol is not available!!")
             raise

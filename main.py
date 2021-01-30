@@ -26,15 +26,9 @@ def data_handler_process(source, monitor_stocks, data_queues, port_queue, api_qu
         monitor_stocks=monitor_stocks,
         source=source)
     tmp_queue.put({
-        'tick_mem_name': d.tick_mem.name,
-        'tick_mem_shape': d.tick_mem_shape,
-        'tick_mem_dtype': d.tick_mem_dtype,
-        'hoga_mem_name': d.hoga_mem.name,
-        'hoga_mem_shape': d.hoga_mem_shape,
-        'hoga_mem_dtype': d.hoga_mem_dtype,
-        'min_mem_name': d.min_mem.name,
-        'min_mem_shape': d.min_mem_shape,
-        'min_mem_dtype': d.min_mem_dtype
+        'sec_mem_name': d.sec_mem.name,
+        'sec_mem_shape': d.sec_mem_shape,
+        'sec_mem_dtype': d.sec_mem_dtype,
     })
     d.start_event_loop()
 
@@ -44,8 +38,8 @@ def portfolio_process(port_queue, order_queue, initial_cap, monitor_stocks, bar)
     e.start_event_loop()
 
 
-def execution_process(port_queue, order_queue, source):
-    ex = ExecutionHandler(port_queue, order_queue, source)
+def execution_process(port_queue, order_queue, server, source):
+    ex = ExecutionHandler(port_queue, order_queue, server, source)
     ex.start_execution_loop()
 
 
@@ -63,6 +57,7 @@ def main_process(source, api_queue, port_queue, order_queue, monitor_stocks):
 if __name__ == '__main__':
     # Initialization
     source = 'ebest'
+    server = 'demo' # ebest 서버: demo or hts
     initial_cap = 1000000
     strategy1_universe = ['005930', '096530']
     strategy2_universe = ['004770']
@@ -85,20 +80,12 @@ if __name__ == '__main__':
     dp.start()
 
     shm_info = tmp_q.get()
-    tick_mem_name = shm_info['tick_mem_name']
-    tick_mem_shape = shm_info['tick_mem_shape']
-    tick_mem_dtype = shm_info['tick_mem_dtype']
-    hoga_mem_name = shm_info['hoga_mem_name']
-    hoga_mem_shape = shm_info['hoga_mem_shape']
-    hoga_mem_dtype = shm_info['hoga_mem_dtype']
-    min_mem_name = shm_info['min_mem_name']
-    min_mem_shape = shm_info['min_mem_shape']
-    min_mem_dtype = shm_info['min_mem_dtype']
+    sec_mem_name = shm_info['sec_mem_name']
+    sec_mem_shape = shm_info['sec_mem_shape']
+    sec_mem_dtype = shm_info['sec_mem_dtype']
 
     # shared_memory를 가지고 있는 Bar 객체를 생성
-    bar = Bar(None, tick_mem_name, tick_mem_shape, tick_mem_dtype,
-              hoga_mem_name, hoga_mem_shape, hoga_mem_dtype,
-              min_mem_name, min_mem_shape, min_mem_dtype)
+    bar = Bar(sec_mem_name, sec_mem_shape, sec_mem_dtype)
 
     # [Process #2]
     # Portfolio 프로세스 실행
@@ -107,7 +94,7 @@ if __name__ == '__main__':
 
     # [Process #3+]
     # Strategy 프로세스 실행
-    s1 = Process(target=strategy_process, args=(st[0], d_q[0], p_q, o_q, strategy1_universe, monitor_stocks, bar), name="Startegy1")
+    s1 = Process(target=strategy_process, args=(st[0], d_q[0], p_q, o_q, strategy1_universe, monitor_stocks, bar), name="Startegy_1")
     s1.start()
 
     # s2 = Process(target=strategy_process, args=(st[i], d_q[i], p_q, o_q, strategy2_universe,
@@ -119,9 +106,9 @@ if __name__ == '__main__':
 
     # [Process #4]
     # Execution 프로세스 키움/이베스트/바이낸스 API 실행
-    ex = Process(target=execution_process, args=(p_q, o_q, source), name="ExecutionHandler")
+    ex = Process(target=execution_process, args=(p_q, o_q, server, source), name="ExecutionHandler")
     ex.start()
 
     # [Process #5]
-    # Main 프로세스 키움/이베스트/바이낸스 API 실행
+    # Main 프로세스(Data Vendor) 키움/이베스트/바이낸스 API 실행
     main_process(source=source, api_queue=a_q, port_queue=p_q, order_queue=o_q, monitor_stocks=monitor_stocks)

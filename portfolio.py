@@ -101,7 +101,12 @@ class Portfolio(BarClient):
 
         for s in self.symbol_list:
             #Approximation by current_price price
-            market_value = self.current_positions[s] * self.get_latest_bar_value(s, 'current_price')
+            cur_price = self.get_latest_bar_value(s, 'current_price')
+            if cur_price == 0: # 장시작후 초반에 가격이 업뎃 안돼면 0으로 들어옴, 전일 Holding Value로 대체해서 찍기.
+                market_value = self.current_holdings[s]
+            else:
+                market_value = self.current_positions[s] * cur_price
+
             hold_dict[s] = market_value
             hold_dict['total_value'] += market_value
 
@@ -207,7 +212,7 @@ class Portfolio(BarClient):
             while True:
                 event = self.port_queue.get()
 
-                if event.type == 'MARKET':
+                if event.type == 'SECOND':
                     self.update_timeindex(event)
 
                 elif event.type == 'SIGNAL':

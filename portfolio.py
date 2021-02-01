@@ -7,7 +7,6 @@ import pandas as pd
 
 class Portfolio(BarClient):
     def __init__(self, port_queue, order_queue, initial_cap, monitor_stocks, bar):
-        # super().__init__(Bar.SYMBOL_TABLE)
         super().__init__(bar)
         print('Portfolio started')
         self.port_queue = port_queue

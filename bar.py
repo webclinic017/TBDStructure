@@ -15,6 +15,12 @@ class BarClient:
         """
         self.bar = bar
 
+        ### 잘되나 확인? #### 안되면 사실상 Bar class를 다시 StaticMethod로 바꿔도 댈듯 너무 복잡해졋다.
+        self.sec_mem_shape = self.bar.sec_mem_shape
+        self.sec_mem = shared_memory.SharedMemory(name=self.bar.sec_mem_name)
+        self.sec_mem_array = np.ndarray(shape=self.bar.sec_mem_shape, dtype=self.bar.sec_mem_dtype, buffer=self.sec_mem.buf)
+        ####################
+
         self.get_latest_bar = bar.get_latest_bar
         self.get_latest_n_bars = bar.get_latest_n_bars
         self.get_latest_bar_datetime = bar.get_latest_bar_datetime
@@ -86,6 +92,9 @@ class Bar:
     def __init__(self, sec_mem_name='', sec_mem_shape=(), sec_mem_dtype=None):
 
         self.sec_mem_shape = sec_mem_shape
+        self.sec_mem_name = sec_mem_name
+        self.sec_mem_dtype = sec_mem_dtype
+
         self.sec_mem = shared_memory.SharedMemory(name=sec_mem_name)
         self.sec_mem_array = np.ndarray(shape=sec_mem_shape, dtype=sec_mem_dtype, buffer=self.sec_mem.buf)
 
@@ -149,6 +158,7 @@ class Bar:
             print("Symbol is not available!!")
             raise
         else:
+            print(bars_list[-1], current_process().name)
             return bars_list[-1][self.FIELD_TABLE[val_type]]
 
     def get_latest_n_bars_value(self, symbol, val_type, N=1):
@@ -166,5 +176,5 @@ class Bar:
             raise
         else:
             col_idx = self.FIELD_TABLE[val_type]
-            print(bars_list[-1], current_process().name)
+            # print(bars_list[-1], current_process().name)
             return bars_list[-N:, col_idx]

@@ -30,6 +30,8 @@ def data_handler_process(source, monitor_stocks, data_queues, port_queue, api_qu
         'sec_mem_shape': d.sec_mem_shape,
         'sec_mem_dtype': d.sec_mem_dtype,
     })
+
+    print(d.sec_mem_dtype)
     d.start_event_loop()
 
 

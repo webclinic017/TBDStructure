@@ -8,6 +8,7 @@ from portfolio import Portfolio
 from execution import ExecutionHandler
 
 # from kiwoom.realtime import KiwoomRealtimeAPI
+from virtual.virtual_data import VirtualAPI
 
 from ebest import ebest_data, ebest_execution
 from bar import Bar
@@ -58,6 +59,10 @@ def main_process(source, api_queue, port_queue, order_queue, monitor_stocks):
 
     elif source == 'ebest':
         ebest_data.Main(api_queue, port_queue, order_queue, monitor_stocks) # Myobject가 불러와지나?..
+
+    elif source == 'virtual':
+        v = VirtualAPI(api_queue)
+        v.stream_data('2021-01-29')
 
 
 if __name__ == '__main__':

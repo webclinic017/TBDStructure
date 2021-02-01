@@ -48,12 +48,14 @@ class DataHandler:
         self.sec_mem_shape = (int(self.symbol_cnt), int(second_cnt), int(sec_field_cnt))
 
         sec_array = np.zeros(self.sec_mem_shape)
+        # sec_array의 초기값은 NaN이여야 한다. 그래야 평균 연산시 결과치가 NaN으로 나와 시그널이 무조건 나가는걸 막을수 있음
+        sec_array.fill(np.nan)
         self.sec_mem_dtype = sec_array.dtype
         self.sec_mem_size = sec_array.nbytes
 
         self.sec_mem = shared_memory.SharedMemory(create=True, size=self.sec_mem_size)
         self.sec_mem_array = np.ndarray(shape=self.sec_mem_shape, dtype=self.sec_mem_dtype, buffer=self.sec_mem.buf)
-        self.sec_mem_array[:] = sec_array[:].fill(np.nan)
+        self.sec_mem_array[:] = sec_array[:]
         del sec_array
 
         print('Shared Memory array를 생성하였습니다.')
@@ -64,7 +66,8 @@ class DataHandler:
         # print(f'[Minute Array] Memory: {self.min_mem.name} / Shape: {self.min_mem_shape} / Size: {self.min_mem_size / 1e6} MBs')
 
         # current_price, open_price, high, low, cum_volume, trade_sell_hoga1, trade_buy_hoga1
-        self.current_bar_array = np.zeros([self.symbol_cnt, len(FIELD_TABLE.keys())]).fill(np.nan)
+        self.current_bar_array = np.zeros([self.symbol_cnt, len(FIELD_TABLE.keys())])
+        # self.current_bar_array.fill(np.nan)
         self.start_time = None
         self.hoga_keys = list(FIELD_TABLE.keys())[FIELD_TABLE["sell_hoga1"]:]
         # # API 데이터를 소켓으로 받아올 수도 있다.
@@ -92,19 +95,20 @@ class DataHandler:
 
     def initialize_second_bar(self):
         # 1초가 지나면 current_bar_array 초기화 진행
-        print("Update_second_bars: ", self.current_bar_array)
+        print("Update_second_bars: ", self.sec_mem_array)
 
         prev_upper = self.sec_mem_array[:, 1:, :]
         self.sec_mem_array[:, 0:-1, :] = prev_upper  # 위의 한줄을 제외하고 위로 올린다
         self.sec_mem_array[:, -1, :] = self.current_bar_array
         m_e = SecondEvent()
         self.port_queue.put(m_e)
+        [q.put(m_e) for q in self.data_queues]
 
         cur_price_arr = self.current_bar_array[:, FIELD_TABLE['current_price']]
         cur_price_arr = cur_price_arr.reshape(self.symbol_cnt, 1)
 
         # shape 맞춰서 current_price로 open, high, low 초기화 해주기
-        self.current_bar_array[:, :FIELD_TABLE['low']] = np.tile(cur_price_arr, (1, FIELD_TABLE['low'] + 1))
+        self.current_bar_array[:, :FIELD_TABLE['low']+1] = np.tile(cur_price_arr, (1, FIELD_TABLE['low'] + 1))
 
     def update_shared_memory(self, data):
         code = data['code']
@@ -122,20 +126,23 @@ class DataHandler:
 
     def start_event_loop(self):
         market_open = False
+        self.start_time = time.time()
         while True:
             data = self.api_queue.get()
-            if data['type'] == "Market_Open":
-                market_open = True
-                self.start_time = time.time()
-                print("장시작!! : ", datetime.datetime.now())
-            elif data['type'] == "Market_Close":
-                print("DataHandler: 장 종료")
-                break
-
+            # if data['type'] == "Market_Open":
+            #     market_open = True
+            #     self.start_time = time.time()
+            #     print("장시작!! : ", datetime.datetime.now())
+            # elif data['type'] == "Market_Close":
+            #     print("DataHandler: 장 종료")
+            #     break
+            market_open = True
             if market_open:
                 if data['code'] in self.symbol_list:
                     # backtest할때는 전종목 데이터를 보내는 경우도 있기 때문에 필터하여 업데이트하기
                     self.update_shared_memory(data)
+                else:
+                    continue
 
 
 

@@ -1,6 +1,6 @@
 import datetime
 import numpy as np
-from multiprocessing import shared_memory
+from multiprocessing import shared_memory, current_process
 import pandas as pd
 
 
@@ -100,16 +100,11 @@ class Bar:
         """
         try:
             if freq == "second":
-                latest_symbol_data = np.dstack([self.tick_mem_array, self.hoga_mem_array])
+                latest_symbol_data = self.sec_mem_array
                 bars_list = latest_symbol_data[self.SYMBOL_TABLE[symbol]]
                 return bars_list[-1]
             elif freq == "minute":
-                bars_list = self.min_mem_array[self.SYMBOL_TABLE[symbol]]
-                hour = datetime.datetime.now().hour
-                ex_minute = datetime.datetime.now().minute - 1
-                min_date = f'{hour}{ex_minute}00'
-                date_idx = self.minute_table[min_date]
-                return bars_list[date_idx, :]
+                pass
         except KeyError:
             print("Symbol is not available!!")
             raise
@@ -120,14 +115,13 @@ class Bar:
         :return: latest n bars or n-k if less available
         """
         try:
-            latest_symbol_data = np.dstack([self.tick_mem_array, self.hoga_mem_array])
+            latest_symbol_data = self.sec_mem_array
             bars_list = latest_symbol_data[self.SYMBOL_TABLE[symbol]]
         except KeyError:
             print("Symbol is not available!!")
             raise
         else:
             return bars_list[-N:]
-        # update bar에서 latest_symbol_data에 넣어주는건 bar 하나인데 어떻게 -N개 만큼 가져올수 있는거지?
 
     def get_latest_bar_datetime(self, symbol):
         """
@@ -149,7 +143,7 @@ class Bar:
         :return: returns one of values designated by val_type
         """
         try:
-            latest_symbol_data = np.dstack([self.tick_mem_array, self.hoga_mem_array])
+            latest_symbol_data = self.sec_mem_array
             bars_list = latest_symbol_data[self.SYMBOL_TABLE[symbol]]
         except KeyError:
             print("Symbol is not available!!")
@@ -164,13 +158,13 @@ class Bar:
         :return: returns one of N-bars values designated by val_type
         """
         try:
-            latest_symbol_data = np.dstack([self.tick_mem_array, self.hoga_mem_array])
+            latest_symbol_data = self.sec_mem_array
+            print(latest_symbol_data, current_process().name)
             bars_list = latest_symbol_data[self.SYMBOL_TABLE[symbol]]
         except KeyError:
             print("Symbol is not available!!")
             raise
         else:
             col_idx = self.FIELD_TABLE[val_type]
-            print(bars_list[-1])
-            print(self.FIELD_TABLE)
-            return bars_list[:, col_idx]
+            print(bars_list[-1], current_process().name)
+            return bars_list[-N:, col_idx]

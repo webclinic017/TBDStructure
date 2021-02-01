@@ -6,6 +6,7 @@ import pandas as pd
 import threading
 from ebest import ebest_execution
 
+
 class ExecutionHandler:
     def __init__(self, port_queue, order_queue, server="demo", source='backtest'):
         """
@@ -36,9 +37,11 @@ class ExecutionHandler:
                 else:
                     print("put right direction: BUY or SELL")
 
-                ebest_execution.EbestExec.CSPAT00600_request(event.order_type, AcntNo=Ebest.acc_no_stock, InptPwd=Ebest.acc_pw,
-                                             IsuNo=event.symbol,
-                                             OrdQty=event.quantity, BnsTpCode=direction)
+                ebest_execution.Ebest.CSPAT00600_request(order_type=event.order_type,
+                                                         AcntNo=ebest_execution.Ebest.acc_no_stock,
+                                                         InptPwd=ebest_execution.Ebest.acc_pw,
+                                                         IsuNo=event.symbol,
+                                                         OrdQty=event.quantity, BnsTpCode=direction)
 
         if self.source == 'binance':
             pass

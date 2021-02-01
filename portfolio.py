@@ -213,15 +213,19 @@ class Portfolio(BarClient):
                 event = self.port_queue.get()
 
                 if event.type == 'SECOND':
+                    print(event)
                     self.update_timeindex(event)
 
                 elif event.type == 'SIGNAL':
+                    print(event)
                     self.update_signal(event)
 
                 elif event.type == 'ORDER':
+                    print(event)
                     self.order_queue.put(event)
 
                 elif event.type == 'FILL':
+                    print(event)
                     self.update_fill(event)
 
                 else:

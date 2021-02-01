@@ -67,7 +67,7 @@ if __name__ == '__main__':
     st = [Strategy_1, Strategy_2]
 
     # market event를 push받기 위한 data_queue
-    d_q = [Queue() for _ in range(len(st))]
+    d_q = [Queue() for _ in range(1)] # len(st) 로 바꿔주기
     p_q = Queue()  # port_queue
     a_q = Queue()  # api_queue
     o_q = Queue()  # order_queue

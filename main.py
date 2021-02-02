@@ -10,11 +10,12 @@ from execution import ExecutionHandler
 # from kiwoom.realtime import KiwoomRealtimeAPI
 
 from ebest import ebest_data, ebest_execution
-from bar import Bar
 
 
-def strategy_process(strategy_cls, data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, bar):
-    s = strategy_cls(data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, bar)
+def strategy_process(strategy_cls, data_queue, port_queue, order_queue, strategy_universe, monitor_stocks,
+                     sec_mem_name, sec_mem_shape, sec_mem_dtype):
+    s = strategy_cls(data_queue, port_queue, order_queue, strategy_universe, monitor_stocks,
+                     sec_mem_name, sec_mem_shape, sec_mem_dtype)
     s.calc_signals()
 
 
@@ -31,12 +32,11 @@ def data_handler_process(source, monitor_stocks, data_queues, port_queue, api_qu
         'sec_mem_dtype': d.sec_mem_dtype,
     })
 
-    print(d.sec_mem_dtype)
     d.start_event_loop()
 
 
-def portfolio_process(port_queue, order_queue, initial_cap, monitor_stocks, bar):
-    e = Portfolio(port_queue, order_queue, initial_cap, monitor_stocks, bar)
+def portfolio_process(port_queue, order_queue, initial_cap, monitor_stocks, sec_mem_name, sec_mem_shape, sec_mem_dtype):
+    e = Portfolio(port_queue, order_queue, initial_cap, monitor_stocks, sec_mem_name, sec_mem_shape, sec_mem_dtype)
     e.start_event_loop()
 
 
@@ -86,17 +86,19 @@ if __name__ == '__main__':
     sec_mem_shape = shm_info['sec_mem_shape']
     sec_mem_dtype = shm_info['sec_mem_dtype']
 
-    # shared_memory를 가지고 있는 Bar 객체를 생성
-    bar = Bar(sec_mem_name, sec_mem_shape, sec_mem_dtype)
+    # # shared_memory를 가지고 있는 Bar 객체를 생성
+    # bar = Bar(sec_mem_name, sec_mem_shape, sec_mem_dtype)
 
     # [Process #2]
     # Portfolio 프로세스 실행
-    pp = Process(target=portfolio_process, args=(p_q, o_q, initial_cap, monitor_stocks, bar), name="Portfolio")
+    pp = Process(target=portfolio_process, args=(p_q, o_q, initial_cap, monitor_stocks,
+                                                 sec_mem_name, sec_mem_shape, sec_mem_dtype), name="Portfolio")
     pp.start()
 
     # [Process #3+]
     # Strategy 프로세스 실행
-    s1 = Process(target=strategy_process, args=(st[0], d_q[0], p_q, o_q, strategy1_universe, monitor_stocks, bar), name="Startegy_1")
+    s1 = Process(target=strategy_process, args=(st[0], d_q[0], p_q, o_q, strategy1_universe, monitor_stocks,
+                                                sec_mem_name, sec_mem_shape, sec_mem_dtype), name="Startegy_1")
     s1.start()
 
     # s2 = Process(target=strategy_process, args=(st[i], d_q[i], p_q, o_q, strategy2_universe,

@@ -1,13 +1,14 @@
 from execution import ExecutionHandler
 from event import OrderEvent
-from bar import BarClient
+from staticbar import StaticBar
 import datetime
 import pandas as pd
+from multiprocessing import shared_memory
+import numpy as np
 
 
-class Portfolio(BarClient):
-    def __init__(self, port_queue, order_queue, initial_cap, monitor_stocks, bar):
-        super().__init__(bar)
+class Portfolio(StaticBar):
+    def __init__(self, port_queue, order_queue, initial_cap, monitor_stocks, sec_mem_name, sec_mem_shape, sec_mem_dtype):
         print('Portfolio started')
         self.port_queue = port_queue
         self.order_queue = order_queue
@@ -15,9 +16,16 @@ class Portfolio(BarClient):
         self.symbol_list = monitor_stocks
         self.initial_cap = initial_cap
 
-        # 상속하는 Bar 클래스의 SYMBOL_TABLE 바꿔주기!
-        self.bar.set_symbol_table({symbol: i for i, symbol in enumerate(sorted(monitor_stocks))})
-        print("Portfolio SYMBOL TABLE 잘들어왔나? : ", self.bar.SYMBOL_TABLE)
+        self.sec_mem_shape = sec_mem_shape
+        self.sec_mem = shared_memory.SharedMemory(name=sec_mem_name)
+        self.sec_mem_array = np.ndarray(shape=self.sec_mem_shape, dtype=sec_mem_dtype,
+                                        buffer=self.sec_mem.buf)
+
+        self.SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(monitor_stocks))}
+
+        # # 상속하는 Bar 클래스의 SYMBOL_TABLE 바꿔주기!
+        # self.bar.set_symbol_table({symbol: i for i, symbol in enumerate(sorted(monitor_stocks))})
+        # print("Portfolio SYMBOL TABLE 잘들어왔나? : ", self.bar.SYMBOL_TABLE)
 
         self.all_positions = self.construct_all_positions()
         self.current_positions = self.construct_current_positions()
@@ -79,7 +87,7 @@ class Portfolio(BarClient):
         #Updated by update_timeindex() right after..
         #결국 current_position을 주축으로 계속 Fill과 current_price가격에 변화에 따른 Holding의 변화를 모니터링 하고
         #이후 update_timeindex() 함수를 통해 반영하는 구조.
-        latest_datetime = self.get_latest_bar_datetime(self.symbol_list[0])
+        latest_datetime = self.get_latest_bar_datetime(self.sec_mem_array, self.symbol_list[0], self.SYMBOL_TABLE)
 
         #Update positions
         pos_dict = dict((k, v) for k, v in [(s,0) for s in self.symbol_list])
@@ -100,7 +108,7 @@ class Portfolio(BarClient):
 
         for s in self.symbol_list:
             #Approximation by current_price price
-            cur_price = self.get_latest_bar_value(s, 'current_price')
+            cur_price = self.get_latest_bar_value(self.sec_mem_array, s, self.SYMBOL_TABLE, 'current_price')
             if cur_price == 0: # 장시작후 초반에 가격이 업뎃 안돼면 0으로 들어옴, 전일 Holding Value로 대체해서 찍기.
                 market_value = self.current_holdings[s]
             else:
@@ -185,7 +193,7 @@ class Portfolio(BarClient):
             print("Fill direction error at holdings")
 
         # Update holdings list with new quantity
-        fill_cost = self.get_latest_bar_value(fill.symbol, 'current_price') #Live Trading에서는 hts의 매입금액 사용하면 될듯, 결국 Slippage 비용도 여기에 반영해야함.
+        fill_cost = self.get_latest_bar_value(self.sec_mem_array, fill.symbol, self.SYMBOL_TABLE, 'current_price') #Live Trading에서는 hts의 매입금액 사용하면 될듯, 결국 Slippage 비용도 여기에 반영해야함.
         cost = fill_dir * fill_cost * fill.quantity
         self.current_holdings[fill.symbol] += cost
         self.current_holdings['commission'] += fill.commission #수수료

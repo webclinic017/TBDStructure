@@ -61,8 +61,8 @@ if __name__ == '__main__':
     source = 'ebest'
     server = 'demo' # ebest 서버: demo or hts
     initial_cap = 1000000
-    strategy1_universe = ['005930', '096530']
-    strategy2_universe = ['004770']
+    strategy1_universe = ['111R2000', '1CLR2000']
+    strategy2_universe = [] # '005930', '096530'
     # strategy2_universe = []
     monitor_stocks = list(set(strategy1_universe + strategy2_universe)) # ["111R2000", "1CLR2000"] 삼전, 씨젠 , set 써서 정렬됨
 

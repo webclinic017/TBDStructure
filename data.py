@@ -20,6 +20,7 @@ minute_table = {
 
 FIELD_TABLE = Bar.FIELD_TABLE
 
+
 class DataHandler:
     def __init__(self, data_queues, port_queue, api_queue, monitor_stocks, source: str = 'csv'):
         """
@@ -48,7 +49,7 @@ class DataHandler:
         self.sec_mem_shape = (int(self.symbol_cnt), int(second_cnt), int(sec_field_cnt))
 
         sec_array = np.zeros(self.sec_mem_shape)
-        # sec_array의 초기값은 NaN이여야 한다. 그래야 평균 연산시 결과치가 NaN으로 나와 시그널이 무조건 나가는걸 막을수 있음
+        # sec_array의 초기값은 NaN이여야 한다. 그래야 연산시(ex. np.mean) 결과치가 NaN으로 나와 시그널이 무조건 나가는걸 막을수 있음
         sec_array.fill(np.nan)
         self.sec_mem_dtype = sec_array.dtype
         self.sec_mem_size = sec_array.nbytes
@@ -61,15 +62,13 @@ class DataHandler:
         print('Shared Memory array를 생성하였습니다.')
         print(f'[Second Bar Array] Memory: {self.sec_mem.name} / Shape: {self.sec_mem_shape} / Size: {self.sec_mem_size / 1e6} MBs')
 
-        # print(f'[Second Tick Array] Memory: {self.tick_mem.name} / Shape: {self.tick_mem_shape} / Size: {self.tick_mem_size/1e6} MBs')
-        # print(f'[Second Hoga Array] Memory: {self.hoga_mem.name} / Shape: {self.hoga_mem_shape} / Size: {self.hoga_mem_size / 1e6} MBs')
-        # print(f'[Minute Array] Memory: {self.min_mem.name} / Shape: {self.min_mem_shape} / Size: {self.min_mem_size / 1e6} MBs')
-
-        # current_price, open_price, high, low, cum_volume, trade_sell_hoga1, trade_buy_hoga1
+        # ohlcv & 호가 5단계
         self.current_bar_array = np.zeros([self.symbol_cnt, len(FIELD_TABLE.keys())])
-        # self.current_bar_array.fill(np.nan)
+        # 들어오지않은 데이터는 NaN 값으로 처리해야함
+        self.current_bar_array.fill(np.nan)
         self.start_time = None
         self.hoga_keys = list(FIELD_TABLE.keys())[FIELD_TABLE["sell_hoga1"]:]
+
         # # API 데이터를 소켓으로 받아올 수도 있다.
         # context = zmq.Context()
         # self.socket = context.socket(zmq.SUB)
@@ -95,7 +94,7 @@ class DataHandler:
 
     def initialize_second_bar(self):
         # 1초가 지나면 current_bar_array 초기화 진행
-        print("Update_second_bars: ", self.sec_mem_array)
+        # print("Update_second_bars: ", self.sec_mem_array)
 
         prev_upper = self.sec_mem_array[:, 1:, :]
         self.sec_mem_array[:, 0:-1, :] = prev_upper  # 위의 한줄을 제외하고 위로 올린다
@@ -108,7 +107,7 @@ class DataHandler:
         cur_price_arr = cur_price_arr.reshape(self.symbol_cnt, 1)
 
         # shape 맞춰서 current_price로 open, high, low 초기화 해주기
-        self.current_bar_array[:, :FIELD_TABLE['low']+1] = np.tile(cur_price_arr, (1, FIELD_TABLE['low'] + 1))
+        self.current_bar_array[:, :FIELD_TABLE['low'] + 1] = np.tile(cur_price_arr, (1, FIELD_TABLE['low'] + 1))
 
     def update_shared_memory(self, data):
         code = data['code']
@@ -123,12 +122,12 @@ class DataHandler:
             # reset_time
             self.start_time = self.start_time + 1
 
-
     def start_event_loop(self):
         market_open = False
         self.start_time = time.time()
         while True:
             data = self.api_queue.get()
+            # 장 중간에 시작할때는 어떻게 해야 할까?
             # if data['type'] == "Market_Open":
             #     market_open = True
             #     self.start_time = time.time()
@@ -143,8 +142,6 @@ class DataHandler:
                     self.update_shared_memory(data)
                 else:
                     continue
-
-
 
         # # 초봉 업데이트(초봉이 아닌 틱봉인듯)
         # # tick/hoga 모두 업데이트해준다 (dequeue하는 방식!!)

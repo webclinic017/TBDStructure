@@ -1,7 +1,6 @@
 from strategy import Strategy
 from event import SignalEvent
 from multiprocessing import Queue
-
 import datetime
 import numpy as np
 
@@ -26,7 +25,7 @@ class Strategy_1(Strategy):
 
         while True:
             market = self.data_queue.get()
-            print("Strat:", market)
+            # print("Strat:", market)
             cnt += 1
 
             for s in self.symbol_list:

@@ -116,7 +116,7 @@ class StaticBar:
             print("Symbol is not available!!")
             raise
         else:
-            print(bars_list[-1], current_process().name)
+            # print(bars_list[-1], current_process().name)
             return bars_list[-1][StaticBar.FIELD_TABLE[val_type]]
 
     @staticmethod
@@ -127,7 +127,7 @@ class StaticBar:
         :return: returns one of N-bars values designated by val_type
         """
         try:
-            print(data, current_process().name)
+            # print(data, current_process().name)
             bars_list = data[symbol_table[symbol]]
         except KeyError:
             print("Symbol is not available!!")

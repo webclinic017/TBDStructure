@@ -6,6 +6,7 @@ from strategies import Strategy_1, Strategy_2
 from data import DataHandler
 from portfolio import Portfolio
 from execution import ExecutionHandler
+import pandas as pd
 
 # from kiwoom.realtime import KiwoomRealtimeAPI
 
@@ -61,9 +62,15 @@ if __name__ == '__main__':
     source = 'ebest'
     server = 'demo' # ebest 서버: demo or hts
     initial_cap = 1000000
-    strategy1_universe = ['111R2000', '1CLR2000']
-    strategy2_universe = [] # '005930', '096530'
-    # strategy2_universe = []
+
+
+
+    # 주식선물 Universe
+    stock_futures_univ = ['111R2000', '1CLR2000'] # 거래할 stock_futures의 유니버스만 정해주면 된다.
+    stock_futures_dict = pd.read_pickle("./strategies/stock_futures_basecode_idx.pickle")
+    strategy1_universe = [stock_futures_dict[code[1:3]] for code in stock_futures_univ] + stock_futures_univ # ['005930', '096530', "111R2000", "1CLR2000"]
+    strategy2_universe = []  # '005930', '096530'
+
     monitor_stocks = list(set(strategy1_universe + strategy2_universe)) # ["111R2000", "1CLR2000"] 삼전, 씨젠 , set 써서 정렬됨
 
     st = [Strategy_1, Strategy_2]

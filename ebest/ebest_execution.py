@@ -1,4 +1,4 @@
-from event import FillEvent
+from event import FillEvent, JangoEvent
 import datetime
 import win32com.client
 import pythoncom
@@ -53,6 +53,7 @@ class XR_event_handler:
 
         # 주식 체결
         elif code == "SC1":
+            accno = self.GetFieldData("OutBlock", "accno") # 계좌번호
             ordno = self.GetFieldData("OutBlock", "ordno")  # 주문번호
             execqty = self.GetFieldData("OutBlock", "execqty")  # 체결수량
             execprc = self.GetFieldData("OutBlock", "execprc")  # 체결가격
@@ -72,7 +73,7 @@ class XR_event_handler:
             elif bnstp == "2":
                 direction = "BUY"
 
-            fill_event = FillEvent(datetime.datetime.utcnow(),
+            fill_event = FillEvent(datetime.datetime.utcnow(), accno,
                                    shtnIsuno,
                                    'ebest',
                                    int(execqty), direction, fill_cost, None)  # , event.est_fill_cost) 슬리피지 계산위해 고려해보기?
@@ -103,6 +104,7 @@ class XR_event_handler:
 
         # 선물주문체결
         elif code == "C01":
+            accno = self.GetFieldData("OutBlock", "accno")  # 계좌번호
             ordno = self.GetFieldData("OutBlock", "ordno")  # 주문번호
             chevol = self.GetFieldData("OutBlock", "chevol")  # 체결수량
             cheprice = self.GetFieldData("OutBlock", "cheprice")  # 체결가격
@@ -119,10 +121,10 @@ class XR_event_handler:
             elif dosugb == "2":
                 direction = "BUY"
 
-            normfutcode = {"KR7005930003": "111R2000", "KR7096530001": "1CLR2000"}
+            shcode = expcode[3:-1] # 표준종목코드 12자리 -> 8자리 변환 ex) KR4111R20003 -> 111R2000
 
-            fill_event = FillEvent(datetime.datetime.utcnow(),
-                                   normfutcode[expcode],
+            fill_event = FillEvent(datetime.datetime.utcnow(), accno,
+                                   shcode,
                                    'ebest',
                                    int(chevol), direction, fill_cost, None)  # , event.est_fill_cost) 슬리피지 계산위해 고려해보기?
             Ebest.events.put(fill_event)
@@ -137,7 +139,13 @@ class XQ_event_handler:
         # TR: 잔고 조회
         if code == "t0424":
             cts_expcode = self.GetFieldData("t0424OutBlock", "cts_expcode", 0)
+            sunamt = self.GetFieldData("t0424OutBlock", "sunamt", 0) # 추정순자산
+            tappamt = self.GetFieldData("t0424OutBlock", "tappamt", 0) # 평가금액
             occurs_count = self.GetBlockCount("t0424OutBlock1")
+
+            est_cash = int(sunamt) - int(tappamt)
+            jango_event = JangoEvent(est_cash=est_cash)
+            Ebest.events.put(jango_event)
 
             for i in range(occurs_count):
                 expcode = self.GetFieldData("t0424OutBlock1", "expcode", i)
@@ -148,10 +156,14 @@ class XQ_event_handler:
                 tt = Ebest.acc_balance[expcode]
                 tt["잔고수량"] = int(self.GetFieldData("t0424OutBlock1", "janqty", i))
                 tt["매도가능수량"] = int(self.GetFieldData("t0424OutBlock1", "mdposqt", i))
+                tt["평가금액"] = int(self.GetFieldData("t0424OutBlock1", "appamt", i))
                 tt["평균단가"] = int(self.GetFieldData("t0424OutBlock1", "pamt", i))
                 tt["종목명"] = self.GetFieldData("t0424OutBlock1", "hname", i)
                 tt["종목구분"] = self.GetFieldData("t0424OutBlock1", "jonggb", i)
                 tt["수익률"] = float(self.GetFieldData("t0424OutBlock1", "sunikrt", i))
+
+                jango_event = JangoEvent(symbol=expcode, quantity=tt['잔고수량'], market_value=tt["평가금액"])
+                Ebest.events.put(jango_event)
 
             print("잔고내역 %s" % Ebest.acc_balance, flush=True)
 
@@ -183,6 +195,8 @@ class EbestExec:
         print("EbestAPI Execution started")
         Ebest.events = events
         Ebest.server = server
+
+        Ebest.credentials = pd.read_csv("./credentials/credentials.csv", index_col=0, dtype=str).loc[server, :]
 
         # 로그인
         session = win32com.client.DispatchWithEvents("XA_Session.XASession", XS_event_handler)
@@ -249,7 +263,7 @@ class EbestExec:
         # threading.Thread(target=self.start_real_events).join()
 
     def t0424_request(self, cts_expcode=None, next=None):
-        # TR: 주식선물 종목코드 가져오기
+        # 주식 잔고
         Ebest.tr_event = win32com.client.DispatchWithEvents("XA_DataSet.XAQuery", XQ_event_handler)
 
         Ebest.tr_event.ResFileName = "C:/eBEST/xingAPI/Res/t0424.res"

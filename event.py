@@ -1,16 +1,17 @@
 class Event(object):
     pass
 
-class MinuteEvent(Event):
-    def __init__(self, symbol, date, current_price, open_price, high_price, low_price, cum_volume):
-        self.type = 'MINUTE'
-        self.symbol = symbol
-        self.date = date
-        self.current_price = current_price
-        self.open_price = open_price
-        self.high_price = high_price
-        self.low_price = low_price
-        self.cum_volume = cum_volume
+
+# class MinuteEvent(Event):
+#     def __init__(self, symbol, date, current_price, open_price, high_price, low_price, cum_volume):
+#         self.type = 'MINUTE'
+#         self.symbol = symbol
+#         self.date = date
+#         self.current_price = current_price
+#         self.open_price = open_price
+#         self.high_price = high_price
+#         self.low_price = low_price
+#         self.cum_volume = cum_volume
 
 class SecondEvent(Event):
     def __init__(self):
@@ -19,6 +20,7 @@ class SecondEvent(Event):
         # self.date = date
         # self.current_price = current_price
         # self.cum_volume = cum_volume
+
 
 class SignalEvent(Event):
     def __init__(self, strategy_id, symbol, datetime, signal_type, strength, cur_price):
@@ -29,6 +31,20 @@ class SignalEvent(Event):
         self.signal_type = signal_type
         self.strength = strength
         self.cur_price = cur_price
+
+
+class PairSignalEvent(Event):
+    def __init__(self, strategy_id, long_symbol, short_symbol, datetime, signal_type, ratio, long_cur_price, short_cur_price):
+        self.type = "SIGNAL"
+        self.strategy_id = strategy_id
+        self.long_symbol = long_symbol
+        self.short_symbol = short_symbol
+        self.datetime = datetime
+        self.signal_type = signal_type
+        self.ratio = ratio
+        self.long_cur_price = long_cur_price
+        self.short_cur_price = short_cur_price
+
 
 class OrderEvent(Event):
     def __init__(self, symbol, order_type, quantity, direction, est_fill_cost):
@@ -43,10 +59,13 @@ class OrderEvent(Event):
         print("Order: Symbols=%s, Type=%s, Quantity=%s, Direction=%s, est_Fill_Cost=%s" %
               (self.symbol, self.order_type, self.quantity, self.direction, self.est_fill_cost))
 
+
 class FillEvent(Event):
-    def __init__(self, timeindex, symbol, exchange, quantity, direction, fill_cost, est_fill_cost, commission=None):
+    def __init__(self, timeindex, accno, symbol, exchange, quantity, direction, fill_cost, est_fill_cost,
+                 commission=None):
         self.type = "FILL"
         self.timeindex = timeindex
+        self.accno = accno
         self.symbol = symbol
         self.exchange = exchange
         self.quantity = quantity
@@ -72,3 +91,12 @@ class FillEvent(Event):
             transaction_cost = "need calculation"
 
         return transaction_cost
+
+
+class JangoEvent(Event):
+    def __init__(self, symbol=None, quantity=None, market_value=None, est_cash=None):
+        self.type = "JANGO"
+        self.symbol = symbol
+        self.market_value = market_value
+        self.quantity = quantity
+        self.est_cash = est_cash

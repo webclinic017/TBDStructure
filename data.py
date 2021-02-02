@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 from multiprocessing import shared_memory
-from event import MinuteEvent, SecondEvent
+from event import SecondEvent
 from bar import Bar
 import datetime
 import time

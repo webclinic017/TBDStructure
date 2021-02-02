@@ -3,7 +3,7 @@ import pythoncom
 import time
 import pandas as pd
 import numpy as np
-
+import pickle
 
 class MyObjects:
     server = "demo"  # hts:실투자, demo: 모의투자
@@ -13,8 +13,8 @@ class MyObjects:
     tr_ok = False  # TR요청
     real_ok = False  # 실시간 요청
     acc_no_stock = credentials["acc_no_stocks"]  # 주식 계좌번호
-    acc_no_future = credentials["acc_no_futures"]  # 주식선물 계좌번호
-    acc_pw = credentials["acc_pw"]  # 계좌비밀번호
+    acc_no_future = credentials["acc_no_futures"] # 주식선물 계좌번호
+    acc_pw = credentials["acc_pw"] # 계좌비밀번호
 
     code_list = []
     stock_total_code_list = []  # < 종목코드 모아놓는 리스트
@@ -24,6 +24,7 @@ class MyObjects:
     stock_futures_basecode_list = []  # 주식선물의 기초자산 종목코드
 
     stock_futures_basecode_dict = {}
+    stock_futures_basecode_pickle = {}
     whole_universe_code_list = []
 
     #### 요청 함수 모음
@@ -169,6 +170,12 @@ class XQ_event_handler:
 
                 # make dictionary
                 MyObjects.stock_futures_basecode_dict[shcode] = basecode[1:]  # basecode 앞의 "A" 제거
+                MyObjects.stock_futures_basecode_pickle[shcode[1:3]] = basecode[1:]
+
+            ## stock_futures_basecode_pickle(as Dict) 업데이트
+            with open('./strategies/stock_futures_basecode_idx.pickle', 'wb') as f:
+                pickle.dump(MyObjects.stock_futures_basecode_pickle, f)
+                print("stock_futures_basecode_pickle Saved..!")
 
             ### 최근월물/ 차근월물만 뽑아내는 종목리스트로 바꾸기 (추후 보완 ㄱ) ###
             fu_code_ls = list(set(map(lambda x: x[1:3], MyObjects.stock_futures_code_list)))
@@ -185,7 +192,7 @@ class XQ_event_handler:
                         pass
                 total_fu_code.append(fut_tmp)
 
-            total_fu_code = list(map(lambda x: x[:1], total_fu_code))  # 더 원월물까지 포함하고 싶으면 3을 바꾸면됨
+            total_fu_code = list(map(lambda x: x[:1], total_fu_code))  # 더 원월물까지 포함하고 싶으면 1을 바꾸면됨
 
             flatten_fu_code = []
             for fu_code in total_fu_code:

@@ -4,31 +4,8 @@ from multiprocessing import shared_memory, current_process
 import pandas as pd
 
 
-class BarClient:
-    """
-    Bar 클래스를 사용하는 클래스가 상속받을 parent 클래스
-    """
+class StaticBar:
 
-    def __init__(self, bar):
-        """
-        Bar 클래스에서 정의된 함수들로 override해주기
-        """
-        self.bar = bar
-
-        ### 잘되나 확인? #### 안되면 사실상 Bar class를 다시 StaticMethod로 바꿔도 댈듯 너무 복잡해졋다.
-        self.sec_mem_shape = self.bar.sec_mem_shape
-        self.sec_mem = shared_memory.SharedMemory(name=self.bar.sec_mem_name)
-        self.sec_mem_array = np.ndarray(shape=self.bar.sec_mem_shape, dtype=self.bar.sec_mem_dtype, buffer=self.sec_mem.buf)
-        ####################
-
-        self.get_latest_bar = bar.get_latest_bar
-        self.get_latest_n_bars = bar.get_latest_n_bars
-        self.get_latest_bar_datetime = bar.get_latest_bar_datetime
-        self.get_latest_bar_value = bar.get_latest_bar_value
-        self.get_latest_n_bars_value = bar.get_latest_n_bars_value
-
-
-class Bar:
     FIELD_TABLE = {
         'current_price': None,
         'open': None,
@@ -84,33 +61,14 @@ class Bar:
     }
     FIELD_TABLE = {field: i for i, field in enumerate(list(FIELD_TABLE.keys()))}
 
-    minute_table = {
-        date: i for i, date in
-        enumerate([d.strftime('%H%M%S') for d in pd.date_range('08:30', '15:30', freq='T')])
-    }
-
-    def __init__(self, sec_mem_name='', sec_mem_shape=(), sec_mem_dtype=None):
-
-        self.sec_mem_shape = sec_mem_shape
-        self.sec_mem_name = sec_mem_name
-        self.sec_mem_dtype = sec_mem_dtype
-
-        self.sec_mem = shared_memory.SharedMemory(name=sec_mem_name)
-        self.sec_mem_array = np.ndarray(shape=sec_mem_shape, dtype=sec_mem_dtype, buffer=self.sec_mem.buf)
-
-        self.SYMBOL_TABLE = None
-
-    def set_symbol_table(self, symbol_table):
-        self.SYMBOL_TABLE = symbol_table
-
-    def get_latest_bar(self, symbol, freq):
+    @staticmethod
+    def get_latest_bar(data, symbol, symbol_table, freq="second"):
         """
         :return: the last bar from the latest_symbol list.
         """
         try:
             if freq == "second":
-                latest_symbol_data = self.sec_mem_array
-                bars_list = latest_symbol_data[self.SYMBOL_TABLE[symbol]]
+                bars_list = data[symbol_table[symbol]]
                 return bars_list[-1]
             elif freq == "minute":
                 pass
@@ -118,26 +76,26 @@ class Bar:
             print("Symbol is not available!!")
             raise
 
-
-    def get_latest_n_bars(self, symbol, N=1):
+    @staticmethod
+    def get_latest_n_bars(data, symbol, symbol_table, N=1):
         """
         :return: latest n bars or n-k if less available
         """
         try:
-            latest_symbol_data = self.sec_mem_array
-            bars_list = latest_symbol_data[self.SYMBOL_TABLE[symbol]]
+            bars_list = data[symbol_table[symbol]]
         except KeyError:
             print("Symbol is not available!!")
             raise
         else:
             return bars_list[-N:]
 
-    def get_latest_bar_datetime(self, symbol):
+    @staticmethod
+    def get_latest_bar_datetime(data, symbol, symbol_table):
         """
         :return: Python datetime object for the last bar
         """
 
-        #추후 보완하기, 체결시간과 호가시간을 모두 반영해줘야 할 것 같다.
+        # 추후 보완하기, 체결시간과 호가시간을 모두 반영해줘야 할 것 같다.
         # try:
         #     bars_list = list(self.latest_symbol_data[symbol])
         # except KeyError:
@@ -146,35 +104,35 @@ class Bar:
         # else:
         return datetime.datetime.now()
 
-    def get_latest_bar_value(self, symbol, val_type):
+    @staticmethod
+    def get_latest_bar_value(data, symbol, symbol_table, val_type):
         """
         :param val_type: one of OHLCV, Quotes, Open Interest(OI)
         :return: returns one of values designated by val_type
         """
         try:
-            latest_symbol_data = self.sec_mem_array
-            bars_list = latest_symbol_data[self.SYMBOL_TABLE[symbol]]
+            bars_list = data[symbol_table[symbol]]
         except KeyError:
             print("Symbol is not available!!")
             raise
         else:
-            print(bars_list[-1], current_process().name)
-            return bars_list[-1][self.FIELD_TABLE[val_type]]
+            # print(bars_list[-1], current_process().name)
+            return bars_list[-1][StaticBar.FIELD_TABLE[val_type]]
 
-    def get_latest_n_bars_value(self, symbol, val_type, N=1):
+    @staticmethod
+    def get_latest_n_bars_value(data, symbol, symbol_table, val_type, N=1):
         """
         :param val_type: one of OHLCV, Quotes, Open Interest(OI)
         :param N: Number of bars considered
         :return: returns one of N-bars values designated by val_type
         """
         try:
-            latest_symbol_data = self.sec_mem_array
-            print(latest_symbol_data, current_process().name)
-            bars_list = latest_symbol_data[self.SYMBOL_TABLE[symbol]]
+            # print(data, current_process().name)
+            bars_list = data[symbol_table[symbol]]
         except KeyError:
             print("Symbol is not available!!")
             raise
         else:
-            col_idx = self.FIELD_TABLE[val_type]
+            col_idx = StaticBar.FIELD_TABLE[val_type]
             # print(bars_list[-1], current_process().name)
             return bars_list[-N:, col_idx]

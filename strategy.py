@@ -1,21 +1,28 @@
 import numpy as np
 from multiprocessing import shared_memory
-from bar import Bar, BarClient
+from staticbar import StaticBar
 
 
-class Strategy(BarClient):
-    def __init__(self, data_queue, port_queue, order_queue, strategy_universe, monitor_stocks, bar):
+class Strategy(StaticBar):
+    def __init__(self, data_queue, port_queue, order_queue, strategy_universe, monitor_stocks,
+                 sec_mem_name, sec_mem_shape, sec_mem_dtype):
         # Signal Event를 port_queue로 push해준다.
-        super().__init__(bar)
         self.data_queue = data_queue
         self.port_queue = port_queue
         self.order_queue = order_queue
 
         self.symbol_list = strategy_universe # 잘들어옴
 
+        self.sec_mem_shape = sec_mem_shape
+        self.sec_mem = shared_memory.SharedMemory(name=sec_mem_name)
+        self.sec_mem_array = np.ndarray(shape=self.sec_mem_shape, dtype=sec_mem_dtype,
+                                        buffer=self.sec_mem.buf)
+
+        self.SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(monitor_stocks))}
+
         # 상속하는 Bar 클래스의 SYMBOL_TABLE 바꿔주기!
-        self.bar.set_symbol_table({symbol: i for i, symbol in enumerate(sorted(monitor_stocks))})
-        print("Strategy SYMBOL TABLE 잘들어왔나? : ", self.bar.SYMBOL_TABLE)
+        # self.bar.set_symbol_table({symbol: i for i, symbol in enumerate(sorted(monitor_stocks))})
+        # print("Strategy SYMBOL TABLE 잘들어왔나? : ", self.bar.SYMBOL_TABLE)
 
     def calc_signals(self):
         """

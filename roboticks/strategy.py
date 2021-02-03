@@ -1,6 +1,6 @@
 import numpy as np
 from multiprocessing import shared_memory
-from staticbar import StaticBar
+from roboticks.staticbar import StaticBar
 
 
 class Strategy(StaticBar):

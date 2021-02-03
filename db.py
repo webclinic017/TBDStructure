@@ -92,6 +92,25 @@ class UserDB:
             m.codelist = ';'.join(codelist)
             m.save()
 
+    def get_porthistory(self, strategy: str = None):
+        strategy = self._check_strategy_name_present(strategy)
+        history = self.user.history.filter(strategy=strategy).values().all()
+        return history
+
+    def add_porthistory(self, date, traded_stock, traded_time, action, amount, price, strategy: str = None):
+        strategy = self._check_strategy_name_present(strategy)
+        h = PortHistory(
+            user=self.id,
+            strategy=strategy,
+            date=date,
+            traded_stock=traded_stock,
+            traded_time=traded_time,
+            action=action,
+            amount=amount,
+            price=price
+        )
+        h.save()
+
 
 class PriceDB:
 

@@ -1,8 +1,6 @@
-from execution import ExecutionHandler
-from event import OrderEvent
+from roboticks.event import OrderEvent
 from staticbar import StaticBar
 import datetime
-import pandas as pd
 from multiprocessing import shared_memory
 import numpy as np
 

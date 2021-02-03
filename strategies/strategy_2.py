@@ -1,5 +1,5 @@
-from strategy import Strategy
-from event import SignalEvent
+from roboticks.strategy import Strategy
+from roboticks.event import SignalEvent
 
 
 class Strategy_2(Strategy):

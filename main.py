@@ -3,15 +3,15 @@ from PyQt5.QtWidgets import QApplication
 from multiprocessing import Process, Queue
 
 from strategies import Strategy_1, Strategy_2
-from data import DataHandler
-from portfolio import Portfolio
-from execution import ExecutionHandler
+from roboticks.data import DataHandler
+from roboticks.portfolio import Portfolio
+from roboticks.execution import ExecutionHandler
 import pandas as pd
 
 # from kiwoom.realtime import KiwoomRealtimeAPI
 from virtual.virtual_data import VirtualAPI
 
-from ebest import ebest_data, ebest_execution
+from ebest import ebest_data
 
 
 def strategy_process(strategy_cls, data_queue, port_queue, order_queue, strategy_universe, monitor_stocks,

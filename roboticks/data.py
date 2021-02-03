@@ -4,8 +4,7 @@ import numpy as np
 import pandas as pd
 from multiprocessing import shared_memory
 from event import SecondEvent
-from bar import Bar
-import datetime
+from roboticks.bar import Bar
 import time
 
 second_table = {

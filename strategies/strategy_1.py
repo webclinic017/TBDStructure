@@ -1,6 +1,5 @@
-from strategy import Strategy
-from event import SignalEvent
-from multiprocessing import Queue
+from roboticks.strategy import Strategy
+from roboticks.event import SignalEvent
 import datetime
 import numpy as np
 

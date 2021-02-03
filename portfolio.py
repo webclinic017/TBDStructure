@@ -5,6 +5,8 @@ import datetime
 import pandas as pd
 from multiprocessing import shared_memory
 import numpy as np
+from math import floor
+import traceback
 
 
 class Portfolio(StaticBar):
@@ -122,7 +124,7 @@ class Portfolio(StaticBar):
 
         # Append the current holdings
         self.all_holdings.append(hold_dict)
-        # pd.DataFrame(self.all_holdings).to_csv("all_holdings.csv")
+        pd.DataFrame(self.all_holdings).to_csv("all_holdings.csv")
 
     def generate_naive_order(self, signal):
         """
@@ -134,18 +136,19 @@ class Portfolio(StaticBar):
 
         symbol = signal.symbol
         direction = signal.signal_type
-        strength = signal.strength
         cur_price = signal.cur_price
 
-        # 주식선물 8자리
-        if len(symbol) == 8:
-            mkt_quantity = 1000000 / (cur_price * 10) # 거래승수 10
-        # 주식 6자리
-        elif len(symbol) == 6:
-            mkt_quantity = 1000000 / cur_price
-        else:
-            print("Portfolio: Wrong Symbol")
-            mkt_quantity = 0
+        # # 주식선물 8자리
+        # if len(symbol) == 8:
+        #     mkt_quantity = floor(5000000 / (cur_price * 10))  # 거래승수 10
+        # # 주식 6자리
+        # elif len(symbol) == 6:
+        #     mkt_quantity = floor(5000000 / cur_price)
+        # else:
+        #     print("Portfolio: Wrong Symbol")
+        #     mkt_quantity = 0
+
+        mkt_quantity = 1
 
         est_fill_cost = cur_price * mkt_quantity  # for Backtest & Slippage calc / slippage cost = fill_cost(HTS) - est_fill_cost
         cur_quantity = self.current_positions[symbol]
@@ -192,7 +195,6 @@ class Portfolio(StaticBar):
         long_est_fill_cost = long_cur_price * long_mkt_quantity
         short_est_fill_cost = short_cur_price * short_mkt_quantity
 
-
         if direction == 'ENTRY' and long_cur_quantity == 0 and short_cur_quantity == 0:
             order1 = OrderEvent(long_symbol, order_type, long_mkt_quantity, 'BUY', long_est_fill_cost)
             order2 = OrderEvent(short_symbol, order_type, short_mkt_quantity, 'SELL', short_est_fill_cost)
@@ -220,7 +222,6 @@ class Portfolio(StaticBar):
             else:
                 order_event = self.generate_naive_order(event)
                 self.port_queue.put(order_event)
-
 
     def update_positions_from_fill(self, fill):
         """
@@ -292,8 +293,11 @@ class Portfolio(StaticBar):
                                                        self.current_holdings['total_value']
             else:
                 self.current_holdings["cash"] = event.est_cash
+                self.current_holdings["total_value"] = sum(keys for keys in self.current_holdings.values()) - \
+                                                       self.current_holdings['total_value']
 
             print(self.current_holdings)
+            print(self.current_positions)
 
     def start_event_loop(self):
         """
@@ -303,26 +307,33 @@ class Portfolio(StaticBar):
         """
         while True:
             event = self.port_queue.get()
+            try:
+                if event.type == 'SECOND':
+                    print(event)
+                    self.update_timeindex(event)
 
-            if event.type == 'SECOND':
-                print(event)
-                self.update_timeindex(event)
+                elif event.type == 'SIGNAL':
+                    print(event)
+                    self.update_signal(event)
 
-            elif event.type == 'SIGNAL':
-                print(event)
-                self.update_signal(event)
+                elif event.type == 'ORDER':
+                    print(event)
+                    self.order_queue.put(event)
 
-            elif event.type == 'ORDER':
-                print(event)
-                self.order_queue.put(event)
+                elif event.type == 'FILL':
+                    print(event)
+                    self.update_fill(event)
 
-            elif event.type == 'FILL':
-                print(event)
-                self.update_fill(event)
-
-            # 현재는 장시작할때 한번 업데이트, 1분에 한번 정도로 지속적으로 HTS와 맞춰줘도 좋을듯
-            elif event.type == 'JANGO':
-                print(event)
-                self.update_jango(event)
-            else:
-                print(f'Unknown Event type: {event.type}')
+                # 현재는 장시작할때 한번 업데이트, 1분에 한번 정도로 지속적으로 HTS와 맞춰줘도 좋을듯
+                elif event.type == 'JANGO':
+                    print(event)
+                    self.update_jango(event)
+                else:
+                    print(f'Unknown Event type: {event.type}')
+            except:
+                print(traceback.format_exc())
+                # if event is None:
+                #     print("Portfolio: queue.get received: ", event)
+                # else:
+                #     print("Portfolio: Unknown Errorrr!!", event)
+                #     print(traceback.format_exc())

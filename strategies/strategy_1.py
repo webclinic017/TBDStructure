@@ -46,7 +46,7 @@ class Strategy_1(Strategy):
                         bought[s] = 'LONG'
                         self.port_queue.put(signal)
 
-                    elif bought[s]=="OUT" and cnt==10:
+                    elif bought[s]=="OUT" and cnt==50:
                         print("LONG: %s" % bar_date)
                         sig_dir = "LONG"
                         cur_price = self.get_latest_bar_value(self.sec_mem_array, s, self.SYMBOL_TABLE, 'current_price')
@@ -54,7 +54,7 @@ class Strategy_1(Strategy):
                         bought[s] = 'LONG'
                         self.port_queue.put(signal)
 
-                    elif bought[s]=="LONG" and cnt==30:
+                    elif bought[s]=="LONG" and cnt==60:
                         print("SHORT: %s" % bar_date)
                         sig_dir = "EXIT"
                         cur_price = self.get_latest_bar_value(self.sec_mem_array, s, self.SYMBOL_TABLE, 'current_price')

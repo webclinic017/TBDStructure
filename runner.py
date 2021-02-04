@@ -109,8 +109,7 @@ class Runner:
 
         # STEP #2: Portfolio process
         if 'portfolio' not in exclude:
-            pp = Process(target=self._portfolio_process, args=(self.port_queue, self.order_queue, initial_cap, monitor_stocks,
-                                                               sec_mem_name, sec_mem_shape, sec_mem_dtype), name="Portfolio")
+            pp = Process(target=self._portfolio_process, args=(sec_mem_name, sec_mem_shape, sec_mem_dtype), name="Portfolio")
             pp.start()
 
         # STEP #3: Strategy processes
@@ -146,11 +145,13 @@ class Runner:
         })
         d.start_event_loop()
 
-    def _portfolio_process(self, port_queue, order_queue, initial_cap, monitor_stocks, sec_mem_name, sec_mem_shape, sec_mem_dtype):
+    def _portfolio_process(self, sec_mem_name, sec_mem_shape, sec_mem_dtype):
         """
         여러 전략별 포트 정보를 관리할 수 있도록 Portfolio 객체 수정하기
         """
-        e = Portfolio(port_queue, order_queue, initial_cap, monitor_stocks, sec_mem_name, sec_mem_shape, sec_mem_dtype)
+        e = Portfolio(port_queue=self.port_queue, order_queue=self.order_queue, initial_caps=self.initial_caps,
+                      monitor_stocks=self.monitor_stocks, sec_mem_name=sec_mem_name, sec_mem_shape=sec_mem_shape,
+                      sec_mem_type=sec_mem_dtype)
         e.start_event_loop()
 
     def _execution_process(self, port_queue, order_queue, server, source):

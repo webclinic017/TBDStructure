@@ -61,9 +61,10 @@ class OrderEvent(Event):
 
 
 class FillEvent(Event):
-    def __init__(self, timeindex, accno, symbol, exchange, quantity, direction, fill_cost, est_fill_cost,
+    def __init__(self, strategy_id, timeindex, accno, symbol, exchange, quantity, direction, fill_cost, est_fill_cost,
                  commission=None):
         self.type = "FILL"
+        self.strategy_id = strategy_id
         self.timeindex = timeindex
         self.accno = accno
         self.symbol = symbol
@@ -94,8 +95,10 @@ class FillEvent(Event):
 
 
 class JangoEvent(Event):
-    def __init__(self, symbol=None, quantity=None, market_value=None, est_cash=None):
+
+    def __init__(self, strategy_id=None, symbol=None, quantity=None, market_value=None, est_cash=None):
         self.type = "JANGO"
+        self.strategy_id = strategy_id
         self.symbol = symbol
         self.market_value = market_value
         self.quantity = quantity

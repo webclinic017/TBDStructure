@@ -95,9 +95,7 @@ class Runner:
 
         # Process Setup
 
-        ###############
-        ### STEP #1 ###
-        ###############
+        # STEP #1: Data Handler process
         if 'data' not in exclude:
             dp = Process(target=self._data_handler_process, args=(source,), name='DataHandler')
             dp.start()
@@ -106,28 +104,25 @@ class Runner:
             sec_mem_name = shm_info['sec_mem_name']
             sec_mem_shape = shm_info['sec_mem_shape']
             sec_mem_dtype = shm_info['sec_mem_dtype']
+        else:
+            sec_mem_name, sec_mem_shape, sec_mem_dtype = None, None, None
 
-        ###############
-        ### STEP #2 ###
-        ###############
+        # STEP #2: Portfolio process
         if 'portfolio' not in exclude:
             pp = Process(target=self._portfolio_process, args=(self.port_queue, self.order_queue, initial_cap, monitor_stocks,
                                                                sec_mem_name, sec_mem_shape, sec_mem_dtype), name="Portfolio")
             pp.start()
 
-        ###############
-        ### STEP #3 ###
-        ###############
+        # STEP #3: Strategy processes
         if 'strategy' not in exclude:
             self._start_strategies()
 
-        ###############
-        ### STEP #4 ###
-        ###############
+        # STEP #4: Execution process
         if 'execution' not in exclude:
             ep = Process(target=self._execution_process, args=(self.port_queue, self.order_queue, server, source), name="ExecutionHandler")
             ep.start()
 
+        # STEP #5: Main thread program (source programs)
         if source == 'virtual':
             self._init_virtual_setup(date_from, date_to)
         elif source == 'kiwoom':

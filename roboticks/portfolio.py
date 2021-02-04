@@ -6,81 +6,73 @@ import numpy as np
 
 
 class Portfolio(StaticBar):
-    def __init__(self, port_queue, order_queue, initial_cap, monitor_stocks,
+    def __init__(self, port_queue, order_queue, initial_caps: dict, monitor_stocks: list,
                  sec_mem_name, sec_mem_shape, sec_mem_dtype):
+        """
+        initial caps는 Runner에서 생성하는 initial_cap 딕셔너리와 동일하다고 생각하면 된다.
+        """
         print('Portfolio started')
         self.port_queue = port_queue
         self.order_queue = order_queue
 
         self.symbol_list = monitor_stocks
-        self.initial_cap = initial_cap
+        self.initial_caps = initial_caps
 
         self.sec_mem_shape = sec_mem_shape
         self.sec_mem = shared_memory.SharedMemory(name=sec_mem_name)
-        self.sec_mem_array = np.ndarray(shape=self.sec_mem_shape, dtype=sec_mem_dtype,
+        self.sec_mem_array = np.ndarray(shape=sec_mem_shape, dtype=sec_mem_dtype,
                                         buffer=self.sec_mem.buf)
 
         self.SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(monitor_stocks))}
 
-        # # 상속하는 Bar 클래스의 SYMBOL_TABLE 바꿔주기!
-        # self.bar.set_symbol_table({symbol: i for i, symbol in enumerate(sorted(monitor_stocks))})
-        # print("Portfolio SYMBOL TABLE 잘들어왔나? : ", self.bar.SYMBOL_TABLE)
-
-        self.all_positions = self.construct_all_positions()
-        self.current_positions = self.construct_current_positions()
-        self.all_holdings = self.construct_all_holdings()
-        self.current_holdings = self.construct_current_holdings()
+        self.all_positions = {st: self.construct_all_positions() for st, _ in self.initial_caps.items()}
+        self.current_positions = {st: self.construct_current_positions() for st, _ in self.initial_caps.items()}
+        self.all_holdings = {st: self.construct_all_holdings(st) for st, _ in self.initial_caps.items()}
+        self.current_holdings = {st: self.construct_current_holdings(st) for st, _ in self.initial_caps.items()}
 
     def construct_all_positions(self):
         """
         Constructs the positions list using the start_date to determine when the time index will begin
         종목별 보유수량
+        
+        현재는 툴을 시작하면 자동으로 모두 0으로 설정하지만, 추후 실제 api로 보유 수량을 확인하여 업데이트해주도록 수정
         """
-        # print(self.symbol_list)
-        all_pos_dict = dict((k, v) for k, v in [(s, 0) for s in self.symbol_list])
+        all_pos_dict = {k: 0 for k in self.symbol_list}
         all_pos_dict["datetime"] = datetime.datetime.now()
         return [all_pos_dict]
-
-    def construct_all_holdings(self):
-        """
-        Constructs the holding list using the start_date to determine when the time index will begin
-        종목별 평가금액, 현금, 수수료
-        """
-        d = dict((k, v) for k, v in [(s, 0.0) for s in self.symbol_list])
-        d['cash'] = self.initial_cap
-        d['commission'] = 0.0
-        d['total_value'] = self.initial_cap
-        return [d]
 
     def construct_current_positions(self):
         """
         This constructs the dictionary which will hold the instantaneous position of the portfolio
         across all symbols.
         """
-        d = dict((k, v) for k, v in [(s, 0) for s in self.symbol_list])
-        return d
+        return {k: 0 for k in self.symbol_list}
 
-    def construct_current_holdings(self):
+    def construct_all_holdings(self, strategy_name):
+        """
+        Constructs the holding list using the start_date to determine when the time index will begin
+        종목별 평가금액, 현금, 수수료
+        """
+        d = {k: 0.0 for k in self.symbol_list}
+        d['cash'] = self.initial_caps[strategy_name]
+        d['commission'] = 0.0
+        d['total_value'] = self.initial_caps[strategy_name]
+        return [d]
+
+    def construct_current_holdings(self, strategy_name):
         """
         This constructs the dictionary which will hold th instantaneous value of the portfolio
         across all symbols.
         """
-        d = dict((k, v) for k, v in [(s, 0.0) for s in self.symbol_list])
-        d['cash'] = self.initial_cap
+        d = {k: 0.0 for k in self.symbol_list}
+        d['cash'] = self.initial_caps[strategy_name]
         d['commission'] = 0.0
-        d['total_value'] = self.initial_cap
+        d['total_value'] = self.initial_caps[strategy_name]
         return d  # bracket 없는 것만 construct_all_holdings() 와 다름
 
         # live trading에서는 Brokerage에서 바로 요청 후 반영가능! backtesting은 계산 필요.
 
-    def update_timeindex(self, event):
-        """
-        Adds a new record to the positions matrix for the current market date bar.
-        This reflects the PREVIOUS bar, i.e. all current market data at this stage is known(OHLCV).
-
-        Makes use of a MarketEvent from the events queue.
-        :param event:
-        """
+    def update_timeindex(self):
         # Move timeindex by updating current positions
         # If position of stock change -> Make adjustment to current positions
         # Updated by update_timeindex() right after..
@@ -89,38 +81,35 @@ class Portfolio(StaticBar):
         latest_datetime = self.get_latest_bar_datetime(self.sec_mem_array, self.symbol_list[0], self.SYMBOL_TABLE)
 
         # Update positions
-        pos_dict = dict((k, v) for k, v in [(s, 0) for s in self.symbol_list])
-        pos_dict["datetime"] = latest_datetime
+        for st, _ in self.initial_caps.items():
+            pos_dict = {k: self.current_positions[st][k] for k in self.symbol_list}
+            pos_dict["datetime"] = latest_datetime
 
-        for s in self.symbol_list:
-            pos_dict[s] = self.current_positions[s]
+            # Append the current positions
+            self.all_positions[st].append(pos_dict)
 
-        # Append the current positions
-        self.all_positions.append(pos_dict)
+            # Update holdings
+            hold_dict = {k: 0.0 for k in self.symbol_list}
+            hold_dict["datetime"] = latest_datetime
+            hold_dict['cash'] = self.current_holdings[st]['cash']
+            hold_dict['commission'] = self.current_holdings[st]['commission']
+            hold_dict['total_value'] = self.current_holdings[st]['cash']
+            self.current_holdings[st]['commission'] = 0.0 # Commission 다시 0으로, 누적합이 되지않도록.
 
-        # Update holdings
-        hold_dict = dict((k, v) for k, v in [(s, 0.0) for s in self.symbol_list])
-        hold_dict["datetime"] = latest_datetime
-        hold_dict['cash'] = self.current_holdings['cash']
-        hold_dict['commission'] = self.current_holdings['commission']
-        hold_dict['total_value'] = self.current_holdings['cash']
-        # Commission 다시 0으로, 누적합이 되지않도록.
-        self.current_holdings['commission'] = 0.0
+            for s in self.symbol_list:
+                # Approximation by current_price price
+                cur_price = self.get_latest_bar_value(self.sec_mem_array, s, self.SYMBOL_TABLE, 'current_price')
+                if cur_price == np.nan:  # 장시작후 초반에 가격이 업뎃 안돼면 0으로 들어옴, 전일 Holding Value로 대체해서 찍기.
+                    market_value = self.current_holdings[st][s]
+                else:
+                    market_value = self.current_positions[st][s] * cur_price
 
-        for s in self.symbol_list:
-            # Approximation by current_price price
-            cur_price = self.get_latest_bar_value(self.sec_mem_array, s, self.SYMBOL_TABLE, 'current_price')
-            if cur_price == np.nan:  # 장시작후 초반에 가격이 업뎃 안돼면 0으로 들어옴, 전일 Holding Value로 대체해서 찍기.
-                market_value = self.current_holdings[s]
-            else:
-                market_value = self.current_positions[s] * cur_price
+                hold_dict[s] = market_value
+                hold_dict['total_value'] += market_value
 
-            hold_dict[s] = market_value
-            hold_dict['total_value'] += market_value
-
-        # Append the current holdings
-        self.all_holdings.append(hold_dict)
-        # pd.DataFrame(self.all_holdings).to_csv("all_holdings.csv")
+            # Append the current holdings
+            self.all_holdings[st].append(hold_dict)
+            # pd.DataFrame(self.all_holdings).to_csv("all_holdings.csv")
 
     def generate_naive_order(self, signal):
         """
@@ -146,7 +135,7 @@ class Portfolio(StaticBar):
             mkt_quantity = 0
 
         est_fill_cost = cur_price * mkt_quantity  # for Backtest & Slippage calc / slippage cost = fill_cost(HTS) - est_fill_cost
-        cur_quantity = self.current_positions[symbol]
+        cur_quantity = self.current_positions[signal.strategy_id][symbol]
         order_type = 'MKT'  # 추후 지정가 주문도 고려필요
 
         if direction == 'LONG' and cur_quantity == 0:
@@ -169,8 +158,8 @@ class Portfolio(StaticBar):
         long_cur_price = signal.long_cur_price
         short_cur_price = signal.short_cur_price
 
-        long_cur_quantity = self.current_positions[long_symbol]
-        short_cur_quantity = self.current_positions[short_symbol]
+        long_cur_quantity = self.current_positions[signal.strategy_id][long_symbol]
+        short_cur_quantity = self.current_positions[signal.strategy_id][short_symbol]
         order_type = 'MKT'  # 추후 지정가 주문도 고려필요
 
         # 주식선물 8자리
@@ -189,7 +178,6 @@ class Portfolio(StaticBar):
         # 예상 체결금액
         long_est_fill_cost = long_cur_price * long_mkt_quantity
         short_est_fill_cost = short_cur_price * short_mkt_quantity
-
 
         if direction == 'ENTRY' and long_cur_quantity == 0 and short_cur_quantity == 0:
             order1 = OrderEvent(long_symbol, order_type, long_mkt_quantity, 'BUY', long_est_fill_cost)
@@ -219,7 +207,6 @@ class Portfolio(StaticBar):
                 order_event = self.generate_naive_order(event)
                 self.port_queue.put(order_event)
 
-
     def update_positions_from_fill(self, fill):
         """
         Takes a Fill object and updates the position matrix to reflect the new position.
@@ -227,16 +214,11 @@ class Portfolio(StaticBar):
         """
 
         # Check whether the fill is a buy or sell
-        fill_dir = 0
-        if fill.direction == "BUY":
-            fill_dir = 1
-        elif fill.direction == "SELL":
-            fill_dir = -1
-        else:
-            print("Fill direction error at position")
+        # BUY / SELL (2가지만 가능!)
+        fill_dir = 1 if fill.direction == 'BUY' else -1
 
         # Update position list with new quantity
-        self.current_positions[fill.symbol] += fill_dir * fill.quantity
+        self.current_positions[fill.strategy_id][fill.symbol] += fill_dir * fill.quantity
 
     def update_holdings_from_fill(self, fill):
         """
@@ -245,13 +227,8 @@ class Portfolio(StaticBar):
         """
 
         # Check whether the fill is a buy or sell
-        fill_dir = 0
-        if fill.direction == "BUY":
-            fill_dir = 1
-        elif fill.direction == "SELL":
-            fill_dir = -1
-        else:
-            print("Fill direction error at holdings")
+        # BUY / SELL (2가지만 가능!)
+        fill_dir = 1 if fill.direction == 'BUY' else -1
 
         # Update holdings list with new quantity
         # Live Trading에서는 hts의 매입금액 사용하면 될듯, 결국 Slippage 비용도 여기에 반영해야함.
@@ -261,11 +238,11 @@ class Portfolio(StaticBar):
             fill_price = self.get_latest_bar_value(self.sec_mem_array, fill.symbol, self.SYMBOL_TABLE, 'current_price')
             fill_cost = fill_dir * fill_price * fill.quantity
 
-        self.current_holdings[fill.symbol] += fill_cost
-        self.current_holdings['commission'] += fill.commission  # 수수료
-        self.current_holdings["cash"] -= fill_cost + fill.commission
+        self.current_holdings[fill.strategy_id][fill.symbol] += fill_cost
+        self.current_holdings[fill.strategy_id]['commission'] += fill.commission  # 수수료
+        self.current_holdings[fill.strategy_id]["cash"] -= fill_cost + fill.commission
         # update_timeindex에서 q * current_price 된 평가금액 얹어줌. # 필요없는 부분인것 같기도..일부러 cash랑 맞춰줌
-        self.current_holdings['total_value'] -= fill_cost + fill.commission
+        self.current_holdings[fill.strategy_id]['total_value'] -= fill_cost + fill.commission
 
     def update_fill(self, event):
         """
@@ -284,12 +261,12 @@ class Portfolio(StaticBar):
         """
         if event.type == "JANGO":
             if event.quantity is not None:
-                self.current_positions[event.symbol] = event.quantity
-                self.current_holdings[event.symbol] = event.market_value
-                self.current_holdings["total_value"] = sum(keys for keys in self.current_holdings.values()) - \
+                self.current_positions[event.strategy_id][event.symbol] = event.quantity
+                self.current_holdings[event.strategy_id][event.symbol] = event.market_value
+                self.current_holdings[event.strategy_id]["total_value"] = sum(keys for keys in self.current_holdings.values()) - \
                                                        self.current_holdings['total_value']
             else:
-                self.current_holdings["cash"] = event.est_cash
+                self.current_holdings[event.strategy_id]["cash"] = event.est_cash
 
             print(self.current_holdings)
 
@@ -304,7 +281,7 @@ class Portfolio(StaticBar):
 
             if event.type == 'SECOND':
                 print(event)
-                self.update_timeindex(event)
+                self.update_timeindex()
 
             elif event.type == 'SIGNAL':
                 print(event)
@@ -322,5 +299,6 @@ class Portfolio(StaticBar):
             elif event.type == 'JANGO':
                 print(event)
                 self.update_jango(event)
+
             else:
                 print(f'Unknown Event type: {event.type}')

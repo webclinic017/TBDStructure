@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 from multiprocessing import shared_memory
-from event import SecondEvent
+from roboticks.event import SecondEvent
 from roboticks.bar import Bar
 import time
 
@@ -26,6 +26,8 @@ class DataHandler:
         source: csv, kiwoom, ebest, binance etc.
         """
         print('Data Handler started')
+        print(f'Source: {source}')
+        print(f'Monitoring Stocks: {monitor_stocks}\n')
 
         # source마다 들어오는 데이터가 다를 수 있기 때문에 소스 구분을 확실히 한다.
         self.source = source
@@ -59,7 +61,7 @@ class DataHandler:
         del sec_array
 
         print('Shared Memory array를 생성하였습니다.')
-        print(f'[Second Bar Array] Memory: {self.sec_mem.name} / Shape: {self.sec_mem_shape} / Size: {self.sec_mem_size / 1e6} MBs')
+        print(f'[Second Bar Array] Memory: {self.sec_mem.name} / Shape: {self.sec_mem_shape} / Size: {self.sec_mem_size / 1e6} MBs\n')
 
         # ohlcv & 호가 5단계
         self.current_bar_array = np.zeros([self.symbol_cnt, len(FIELD_TABLE.keys())])

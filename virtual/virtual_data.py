@@ -91,21 +91,26 @@ class VirtualAPI:
         self.stocks_dates = os.listdir(self.stocks_path)
         self.futures_dates = os.listdir(self.futures_path)
 
-    def stream_data(self, date_from, asset_type='stocks', data_type='trade', time_from='08', time_to='16'):
+    def stream_data(self, date_from, date_to=None, asset_type='stocks', data_type='trade', time_from='08', time_to='16'):
+        if date_to is None:
+            date_to = date_from
         path = self.stocks_path if asset_type == 'stocks' else self.futures_path
         dates = self.stocks_dates if asset_type == 'stocks' else self.futures_dates
-        if date_from in dates:
-            files = os.listdir(f'{path}/{date_from}')
-            files = [f for f in files if f.replace('.csv', '').split('_')[1] == data_type]
-            files = sorted([f for f in files
-                            if (f.replace('.csv', '').split('_')[-1] >= time_from)
-                            and (f.replace('.csv', '').split('_')[-1] <= time_to)])
-        for f in files:
-            df = pd.read_csv(f'{path}/{date_from}/{f}', names=trade_cols if data_type == 'trade' else orderbook_cols)
-            df.drop(['rotation', 'strength', 'mkt_type', 'mkt_cap'], axis=1, inplace=True)
-            for i in range(len(df)):
-                data = df.iloc[i, :].to_dict()
-                self.api_queue.put(data)
+        dates = sorted([d for d in dates if (d >= date_from) and (d <= date_to)])
+        for date in dates:
+            if date in dates:
+                files = os.listdir(f'{path}/{date_from}')
+                files = [f for f in files if f.replace('.csv', '').split('_')[1] == data_type]
+                files = sorted([f for f in files
+                                if (f.replace('.csv', '').split('_')[-1] >= time_from)
+                                and (f.replace('.csv', '').split('_')[-1] <= time_to)])
+            for f in files:
+                df = pd.read_csv(f'{path}/{date_from}/{f}', names=trade_cols if data_type == 'trade' else orderbook_cols)
+                df.drop(['rotation', 'strength', 'mkt_type', 'mkt_cap'], axis=1, inplace=True)
+                for i in range(len(df)):
+                    data = df.iloc[i, :].to_dict()
+                    data['type'] = 'tick'
+                    self.api_queue.put(data)
 
 
 if __name__ == '__main__':

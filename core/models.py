@@ -12,7 +12,7 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
 
     def __str__(self):
-        return "{}".format(self.email)
+        return f'{self.email}'
 
 
 class UserProfile(models.Model):
@@ -36,7 +36,24 @@ class MonitorStock(models.Model):
     updated = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return '{} {} {}'.format(self.user.username, self.strategy, self.date)
+        return f'{self.user.username} {self.strategy} {self.date}'
+
+
+class Strategy(models.Model):
+    user = models.ForeignKey(User,
+                             on_delete=models.CASCADE,
+                             related_name='strategy')
+    strategy_name = models.CharField(max_length=100) # 전략 이름
+    using_strategy = models.CharField(max_length=100) # 사용하는 전략
+    source = models.CharField(max_length=30, blank=True, null=True)
+    server_type = models.CharField(max_length=20, blank=True, null=True) # demo, hts
+    capital = models.IntegerField(default=1000000, blank=True, null=True)
+    currency = models.CharField(max_length=20, blank=True, null=True, default='KRW')
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.user.username} {self.strategy_name} {self.capital}'
 
 
 class PortHistory(models.Model):

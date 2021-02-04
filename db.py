@@ -10,6 +10,7 @@ application = get_wsgi_application()
 from core.models import (
     User,
     MonitorStock,
+    Strategy,
     PortHistory,
     OHLCV,
 )
@@ -35,6 +36,54 @@ class UserDB:
     def set_strategy(self, strategy):
         self.strategy = strategy
 
+    def save_strategy(self, strategy_name=None, using_strategy=None, source=None, server_type=None, capital=None, currency=None):
+        """
+        모든 전략에는 전략명과 사용 전략을 명시해줘야 한다.
+
+        strategy_name은 본인이 지은 전략의 이름이고,
+        using_strategy는 사용하는 전략의 이름이다.
+
+        strategy_name은 unique한 값이라고 가정한다.
+        """
+        strategy = self._check_strategy_name_present(strategy_name)
+
+        strategy_obj = Strategy.objects.filter(strategy_name=self.strategy)
+        if len(strategy_obj) == 0:
+            # 아직 DB에 정보가 없다면 새로 생성하여 준다.
+            # save_strategy만 하면 생성 혹은 업데이트를 할 수 있다.
+            s = Strategy(
+                user=self.user,
+                strategy_name=strategy,
+                using_strategy=using_strategy,
+                source=source,
+                server_type=server_type,
+                capital=capital if capital is not None else 1000000,
+                currency=currency if currency is not None else 'KRW'
+            )
+            s.save()
+        else:
+            # 이미 데이터가 존재한다면 업데이트를 한다.
+            update_data = {
+                'using_strategy': using_strategy,
+                'source': source,
+                'server_type': server_type,
+                'capital': capital,
+                'currency': currency
+            }
+            update_data = {key: val for key, val in update_data.items() if val is not None}
+            strategy_obj.update(**update_data)
+
+    def get_strategy(self, strategy=None) -> dict:
+        """
+        전략 정보가 없다면 만들어서 기본값으로 만들어 리턴하고, 있다면 object를 리턴하는 형식
+        """
+        strategy = self._check_strategy_name_present(strategy)
+        strategy_obj = Strategy.objects.filter(strategy_name=strategy)
+        if len(strategy_obj) == 0:
+            # 아직 정보가 없다면 오류를 raise하지 않고 save_strategy를 통하여 default값으로 인스턴스를 생성한다.
+            self.save_strategy()
+        return Strategy.objects.filter(strategy_name=self.strategy).values().first()
+
     def remove_strategy_from_db(self, strategy):
         MonitorStock.objects.filter(user=self.user, strategy=strategy).delete()
         PortHistory.objects.filter(user=self.user, strategy=strategy).delete()
@@ -49,7 +98,7 @@ class UserDB:
         if m is not None:
             return m.codelist.split(';')
         else:
-            return
+            return []
 
     def add_to_universe(self, strategy: str = None, symbol: str or list = None):
         strategy = self._check_strategy_name_present(strategy)

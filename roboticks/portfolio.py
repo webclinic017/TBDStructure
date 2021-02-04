@@ -1,13 +1,13 @@
 from roboticks.event import OrderEvent
-from staticbar import StaticBar
+from roboticks.staticbar import StaticBar
 import datetime
 from multiprocessing import shared_memory
 import numpy as np
 
 
 class Portfolio(StaticBar):
-    def __init__(self, port_queue, order_queue, initial_cap, monitor_stocks, sec_mem_name, sec_mem_shape,
-                 sec_mem_dtype):
+    def __init__(self, port_queue, order_queue, initial_cap, monitor_stocks,
+                 sec_mem_name, sec_mem_shape, sec_mem_dtype):
         print('Portfolio started')
         self.port_queue = port_queue
         self.order_queue = order_queue

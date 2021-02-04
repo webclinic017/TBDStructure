@@ -139,6 +139,9 @@ class Runner:
 
     ## Processes
     def _data_handler_process(self, source):
+        """
+        source는 Data Handler에서 데이터를 처리하는 방식이 소스별로 다를 수 있기 때문에 추가하였지만, 추후 제외하여도 됨
+        """
         d = DataHandler(data_queues=self.data_queues, port_queue=self.port_queue, api_queue=self.api_queue,
                         monitor_stocks=self.monitor_stocks, source=source)
         self.tmp_queue.put({
@@ -172,7 +175,7 @@ class Runner:
     # API setup
     def _init_virtual_setup(self, date_from, date_to):
         self.api = VirtualAPI(self.api_queue)
-        self.api.stream_data(date_from, date_to)
+        self.api.stream_data(date_from, date_to, monitor_stocks=self.monitor_stocks)
 
     def _init_kiwoom_setup(self, monitor_stocks):
         app = QApplication(sys.argv)

@@ -42,8 +42,9 @@ def portfolio_process(port_queue, order_queue, initial_cap, monitor_stocks, sec_
 
 
 def execution_process(port_queue, order_queue, server, source):
-    ex = ExecutionHandler(port_queue, order_queue, server, source)
-    ex.start_execution_loop()
+    if source == "ebest":
+        ex = ExecutionHandler(port_queue, order_queue, server, source)
+        ex.start_execution_loop()
 
 
 # DataHandler에 shm 뿌려주는 역할함

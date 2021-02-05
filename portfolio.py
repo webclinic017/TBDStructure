@@ -305,11 +305,15 @@ class Portfolio(StaticBar):
         DataHandler의 MarketEvent, Strategy의 OrderEvent, Execution의 FillEvent를 기다린다.
         Event가 도달하면 바로 처리하는 방식으로 작동한다.
         """
+        cnt = 0
         while True:
             event = self.port_queue.get()
             try:
                 if event.type == 'SECOND':
-                    print(event)
+                    cnt += 1
+                    # print(event)
+                    if cnt % 60 == 1:
+                        print(event, cnt)
                     self.update_timeindex(event)
 
                 elif event.type == 'SIGNAL':

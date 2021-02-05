@@ -128,13 +128,6 @@ class DataHandler:
         while True:
             data = self.api_queue.get()
             # 장 중간에 시작할때는 어떻게 해야 할까?
-            # if data['type'] == "Market_Open":
-            #     market_open = True
-            #     self.start_time = time.time()
-            #     print("장시작!! : ", datetime.datetime.now())
-            # elif data['type'] == "Market_Close":
-            #     print("DataHandler: 장 종료")
-            #     break
             market_open = True
             if market_open:
                 if data['code'] in self.symbol_list:
@@ -142,6 +135,15 @@ class DataHandler:
                     self.update_shared_memory(data)
                 else:
                     continue
+
+            if data['type'] == "Market_Open":
+                market_open = True
+                self.start_time = time.time()
+                print("장시작!! : ", datetime.datetime.now())
+            elif data['type'] == "Market_Close":
+                print("DataHandler: 장 종료")
+                break
+
 
         # # 초봉 업데이트(초봉이 아닌 틱봉인듯)
         # # tick/hoga 모두 업데이트해준다 (dequeue하는 방식!!)

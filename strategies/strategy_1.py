@@ -3,26 +3,26 @@ import numpy as np
 from functools import partial
 
 from roboticks.strategy import Strategy
-from roboticks.event import SignalEvent
+from roboticks.event import SignalEvent, SecondEvent
 
 
 class Strategy_1(Strategy):
 
     def __init__(self, data_queue, port_queue, order_queue, strategy_name, strategy_universe, monitor_stocks,
-                 sec_mem_name, sec_mem_shape, sec_mem_dtype):
+                 sec_mem_name, sec_mem_shape, sec_mem_dtype, source):
 
         self.strategy_name = strategy_name
 
         print('Strategy 1 started')
         super().__init__(data_queue, port_queue, order_queue, strategy_universe, monitor_stocks,
-                         sec_mem_name, sec_mem_shape, sec_mem_dtype)
+                         sec_mem_name, sec_mem_shape, sec_mem_dtype, source)
 
         self.long_window = 400
         self.short_window = 100
 
         # BarStatic partial 함수
         self.latest_bar_value = partial(self.get_latest_bar_value, data=self.sec_mem_array, symbol_table=self.SYMBOL_TABLE,
-                                        val_type='current_price', N=self.long_window)
+                                        val_type='current_price')
         self.latest_n_bars_value = partial(self.get_latest_n_bars_value, data=self.sec_mem_array, symbol_table=self.SYMBOL_TABLE,
                                            val_type='current_price', N=self.long_window)
         self.latest_bar_datetime = partial(self.get_latest_bar_datetime, data=self.sec_mem_array, symbol_table=self.SYMBOL_TABLE)
@@ -37,6 +37,8 @@ class Strategy_1(Strategy):
 
         while True:
             market = self.data_queue.get()
+            if self.source == 'virtual':
+                self.port_queue.put(SecondEvent())
             # print("Strat:", market)
             cnt += 1
 

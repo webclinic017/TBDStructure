@@ -10,9 +10,20 @@ from roboticks.execution import ExecutionHandler
 from db import UserDB, PriceDB
 from strategies import STRATEGY
 
-# from ebest import ebest_data
-from virtual.virtual_data import VirtualAPI
-from kiwoom.realtime import KiwoomRealtimeAPI
+try:
+    from ebest import ebest_data
+except:
+    print('Ebest import가 실패하였습니다.')
+
+try:
+    from virtual.virtual_data import VirtualAPI
+except:
+    print('Virtual import가 실패하였습니다')
+
+try:
+    from kiwoom.realtime import KiwoomRealtimeAPI
+except:
+    print('Kiwoom import가 실패하였습니다.')
 
 
 class Runner:
@@ -39,7 +50,8 @@ class Runner:
         self.source = None       # 같은 소스를 공유하는 여러 전략 실행할 수 있음 (반대 x)
         self.initial_cap = {}    # 전략별 initial_cap
         self.strategies = {}
-        self.monitor_stocks = [] # 모든 전략들이 함께 공유하는 monitor stocks
+        self.symbol_list = {}    # 전략별 트래킹하는 종목 리스트
+        self.monitor_stocks = []
 
     def init_strategy(self, strategy_name: str):
         """
@@ -60,12 +72,15 @@ class Runner:
                 self.strategies[strategy] = STRATEGY[st['using_strategy']]
 
                 # adding universe
-                self.monitor_stocks = list(set(self.monitor_stocks + self.db.universe()))
+                self.symbol_list[strategy] = list(set(self.db.universe()))
 
                 # adding initial cap
                 self.initial_cap[strategy] = st['capital']
 
                 self.data_queues.append(Queue())
+
+            for st, uni in self.symbol_list.items():
+                self.monitor_stocks = list(set(self.monitor_stocks + uni))
         except:
             print(f'{strategy_name}은 존재하지 않습니다. STRATEGY 상수를 확인해주시기 바랍니다.')
             print(traceback.format_exc())
@@ -87,6 +102,9 @@ class Runner:
         """
         if len(self.strategies) == 0:
             raise Exception('전략 설정을 먼저 하고 실행해주세요. (add_strategy를 실행하여야 합니다.)')
+        else:
+            # Data Handler로 넘길 data_queues 생성
+            self.data_queues = [Queue() for _ in range(len(self.strategies))]
 
         if source == 'virtual' and date_from is None:
             raise Exception('Virtual API를 사용하려면 date_from을 yyyy-mm-dd 형식으로 설정하여야 합니다.')
@@ -114,7 +132,7 @@ class Runner:
 
         # STEP #3: Strategy processes
         if 'strategy' not in exclude:
-            self._start_strategies()
+            self._start_strategies(sec_mem_name, sec_mem_shape, sec_mem_dtype, source)
 
         # STEP #4: Execution process
         if 'execution' not in exclude:
@@ -149,9 +167,9 @@ class Runner:
         """
         여러 전략별 포트 정보를 관리할 수 있도록 Portfolio 객체 수정하기
         """
-        e = Portfolio(port_queue=self.port_queue, order_queue=self.order_queue, initial_caps=self.initial_caps,
+        e = Portfolio(port_queue=self.port_queue, order_queue=self.order_queue, initial_caps=self.initial_cap,
                       monitor_stocks=self.monitor_stocks, sec_mem_name=sec_mem_name, sec_mem_shape=sec_mem_shape,
-                      sec_mem_type=sec_mem_dtype)
+                      sec_mem_dtype=sec_mem_dtype)
         e.start_event_loop()
 
     def _execution_process(self, port_queue, order_queue, server, source):
@@ -161,12 +179,25 @@ class Runner:
         ex = ExecutionHandler(port_queue, order_queue, server, source)
         ex.start_execution_loop()
 
+    def _strategy_process(self, id, strategy_cls, strategy_name, strategy_universe, sec_mem_name, sec_mem_shape, sec_mem_dtype, source):
+        sp = strategy_cls(data_queue=self.data_queues[id], port_queue=self.port_queue, order_queue=self.order_queue,
+                          strategy_name=strategy_name, strategy_universe=strategy_universe, monitor_stocks=self.monitor_stocks,
+                          sec_mem_name=sec_mem_name, sec_mem_shape=sec_mem_shape, sec_mem_dtype=sec_mem_dtype, source=source)
+        sp.calc_signals()
+
     # 전략 관련 메소드
-    def _start_strategies(self):
+    def _start_strategies(self, sec_mem_name, sec_mem_shape, sec_mem_dtype, source):
         """
         각 전략별로 프로세스를 분리하여 실행시키기
         """
-        pass
+        strategies = []
+        id = 0
+        for st, st_cls in self.strategies.items():
+            strategies.append(Process(target=self._strategy_process, args=(id, st_cls, st, self.symbol_list[st],
+                                                                           sec_mem_name, sec_mem_shape, sec_mem_dtype, source)))
+            id += 1
+
+        _ = [st.start() for st in strategies]
 
     # API setup
     def _init_virtual_setup(self, date_from, date_to):
@@ -193,22 +224,22 @@ class Runner:
 if __name__ == '__main__':
     r = Runner(username='ppark9553@gmail.com')
 
-    # # 전략이 없다면 생성한 다음 add_strategy를 한다.
-    # r.update_strategy(
-    #     strategy_name='strategy_2_first',
-    #     using_strategy='strategy_2',
-    #     capital=1000000,
-    #     monitor_stocks=['005930', '000020', '000030']
-    # )
-    # r.update_strategy(
-    #     strategy_name='strategy_2_second',
-    #     using_strategy='strategy_2',
-    #     capital=10000000,
-    #     monitor_stocks=['005930', '000270']
-    # )
+    # 전략이 없다면 생성한 다음 add_strategy를 한다.
+    r.update_strategy(
+        strategy_name='strategy_1_first',
+        using_strategy='strategy_1',
+        capital=1000000,
+        monitor_stocks=['005930', '000020', '000030']
+    )
+    r.update_strategy(
+        strategy_name='strategy_1_second',
+        using_strategy='strategy_1',
+        capital=10000000,
+        monitor_stocks=['005930', '000270']
+    )
 
-    r.add_strategy(['strategy_2_first', 'strategy_2_second'])
+    r.add_strategy(['strategy_1_first', 'strategy_1_second'])
 
-    r.start_trading(source='virtual', date_from='2021-02-03', exclude=['portfolio', 'execution', 'strategy'])
+    r.start_trading(source='virtual', date_from='2021-02-03', exclude=['execution'])
 
     print('r')

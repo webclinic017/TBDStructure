@@ -21,9 +21,9 @@ FIELD_TABLE = Bar.FIELD_TABLE
 
 
 class DataHandler:
-    def __init__(self, data_queues, port_queue, api_queue, monitor_stocks, source: str = 'csv'):
+    def __init__(self, data_queues, port_queue, api_queue, monitor_stocks, source: str = 'virtual'):
         """
-        source: csv, kiwoom, ebest, binance etc.
+        source: virtual, kiwoom, ebest, crypto etc.
         """
         print('Data Handler started')
         print(f'Source: {source}')
@@ -100,8 +100,17 @@ class DataHandler:
         
         # 1초 데이터가 업데이트 되었다고 모든 Strategy에게 SecondEvent 전송
         m_e = SecondEvent()
-        self.port_queue.put(m_e)
         _ = [q.put(m_e) for q in self.data_queues]
+        if self.source != 'virtual':
+            """
+            virtual이면 백테스트 모드이다.
+            파일에서 읽어오는 데이터를 Portfolio/Strategy 양쪽에 뿌리는데
+            Strategy의 연산 속도가 오래 걸릴 수록 둘의 싱크가 안 맞을 위험이 있다.
+            그래서 백테스팅 모드에서는 port_queue로 SecondEvent를 보내지 않고,
+            Strategy에서 직접 port_queue로 이벤트를 전송해준다. (그 말은 백테스팅 모드를 지원하는 전략은
+                                                             port_queue로 이벤트를 전송하는 기능을 직접 추가해야한다.)
+            """
+            self.port_queue.put(m_e)
 
         cur_price_arr = self.current_bar_array[:, FIELD_TABLE['current_price']]
         cur_price_arr = cur_price_arr.reshape(self.symbol_cnt, 1)

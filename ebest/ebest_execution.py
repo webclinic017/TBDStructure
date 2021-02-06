@@ -143,6 +143,10 @@ class XQ_event_handler:
             tappamt = self.GetFieldData("t0424OutBlock", "tappamt", 0) # 평가금액
             occurs_count = self.GetBlockCount("t0424OutBlock1")
 
+            # 빈 포트폴리오는 평가금액이 없음. 오류방지
+            if tappamt == '':
+                tappamt = 0
+
             est_cash = int(sunamt) - int(tappamt)
             jango_event = JangoEvent(est_cash=est_cash)
             Ebest.events.put(jango_event)

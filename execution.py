@@ -56,10 +56,12 @@ class ExecutionHandler:
     def filter_fill_event(self, event):
         if event.accno == self.credentials["acc_no_stocks"]:
             fill_event = event  # , event.est_fill_cost) 슬리피지 계산위해 고려해보기?
+            print(fill_event)
             self.port_queue.put(fill_event)
 
         elif event.accno == self.credentials["acc_no_futures"]:
             fill_event = event  # , event.est_fill_cost) 슬리피지 계산위해 고려해보기?
+            print(fill_event)
             self.port_queue.put(fill_event)
 
     def start_execution_loop(self):

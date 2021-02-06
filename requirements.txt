@@ -11,3 +11,4 @@ python-dateutil
 pytz
 pyzmq
 requests
+pywin32

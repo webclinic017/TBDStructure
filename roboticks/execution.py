@@ -1,24 +1,30 @@
-from ebest import ebest_execution
 import pandas as pd
+
+try:
+    from ebest import ebest_execution
+except:
+    print('Ebest와 관련된 모듈을 제대로 install해주기 바랍니다.')
 
 
 class ExecutionHandler:
-    def __init__(self, port_queue, order_queue, server="demo", source='backtest'):
+    def __init__(self, port_queue, order_queue, server="demo", source='virtual'):
         """
         source: backtest, kiwoom, ebest, binance etc.
         """
         print('Execution Handler started')
         self.port_queue = port_queue
         self.order_queue = order_queue
+
         self.source = source
-        self.credentials = pd.read_csv("./credentials/credentials.csv", index_col=0, dtype=str).loc[server, :]
 
         if self.source == "ebest":
+            self.credentials = pd.read_csv("./credentials/credentials.csv", index_col=0, dtype=str).loc[server, :]
             ebest_execution.EbestExec(self.order_queue,
                                       server=server)  # FillEvent는 XR_event_handler 참조, port_queue로 Fill 보냄
 
     def execute_order(self, event):
-        if self.source == 'backtest':
+        if self.source == 'virtual':
+            # OrderEvent로 바로 FillEvent생성하기
             pass
 
         if self.source == 'kiwoom':
@@ -67,6 +73,7 @@ class ExecutionHandler:
     def start_execution_loop(self):
         while True:
             event = self.order_queue.get()
+
             if event.type == 'ORDER':
                 self.execute_order(event)
             elif event.type == 'FILL':

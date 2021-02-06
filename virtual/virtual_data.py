@@ -1,5 +1,8 @@
 import os
+import time
+import platform
 import pandas as pd
+import os.path as path
 
 trade_cols = [
     'code',
@@ -82,8 +85,13 @@ class VirtualAPI:
         print('Virtual Data Source Initialized')
         self.api_queue = api_queue
 
-        self.stocks_path = r'G:\공유 드라이브\Project_TBD\Stock_Data\real_time\kiwoom_stocks'
-        self.futures_path = r'G:\공유 드라이브\Project_TBD\Stock_Data\real_time\kiwoom_futures'
+        if platform.platform().split('-')[0] == 'macOS':
+            user_path = path.expanduser('~')
+            self.stocks_path = f'{user_path}/Google Drive/공유 드라이브/Project_TBD/Stock_Data/real_time/kiwoom_stocks'
+            self.futures_path = f'{user_path}/Google Drive/공유 드라이브/Project_TBD/Stock_Data/real_time/kiwoom_futures'
+        else:
+            self.stocks_path = r'G:\공유 드라이브\Project_TBD\Stock_Data\real_time\kiwoom_stocks'
+            self.futures_path = r'G:\공유 드라이브\Project_TBD\Stock_Data\real_time\kiwoom_futures'
 
         self._get_dates()
 
@@ -91,23 +99,35 @@ class VirtualAPI:
         self.stocks_dates = os.listdir(self.stocks_path)
         self.futures_dates = os.listdir(self.futures_path)
 
-    def stream_data(self, date_from, asset_type='stocks', data_type='trade', time_from='08', time_to='16'):
+    def stream_data(self, date_from, date_to=None, asset_type='stocks', data_type='trade', time_from='08', time_to='16', monitor_stocks=[]):
+        if date_to is None:
+            date_to = date_from
         path = self.stocks_path if asset_type == 'stocks' else self.futures_path
         dates = self.stocks_dates if asset_type == 'stocks' else self.futures_dates
-        if date_from in dates:
-            files = os.listdir(f'{path}/{date_from}')
+        dates = sorted([d for d in dates if (d >= date_from) and (d <= date_to)])
+        for date in dates:
+            files = os.listdir(f'{path}/{date}')
             files = [f for f in files if f.replace('.csv', '').split('_')[1] == data_type]
             files = sorted([f for f in files
                             if (f.replace('.csv', '').split('_')[-1] >= time_from)
                             and (f.replace('.csv', '').split('_')[-1] <= time_to)])
-        for f in files:
-            df = pd.read_csv(f'{path}/{date_from}/{f}', names=trade_cols if data_type == 'trade' else orderbook_cols)
-            df.drop(['rotation', 'strength', 'mkt_type', 'mkt_cap'], axis=1, inplace=True)
-            for i in range(len(df)):
-                data = df.iloc[i, :].to_dict()
-                self.api_queue.put(data)
+            for f in files:
+                for df in pd.read_csv(f'{path}/{date_from}/{f}',
+                                      names=trade_cols if data_type == 'trade' else orderbook_cols,
+                                      chunksize=1000000):
+                    # chunksize를 설정하지 않으면 32비트 터미널에서 read_csv를 실행할 수 없다.
+                    # 300메가 이상되는 파일은 열지 못하는듯
+                    df.drop(['rotation', 'strength', 'mkt_type', 'mkt_cap'], axis=1, inplace=True)
+                    for i in range(len(df)):
+                        data = df.iloc[i, :].to_dict()
+                        data['type'] = 'tick'
+                        if len(monitor_stocks) > 0:
+                            if data['code'] in monitor_stocks:
+                                self.api_queue.put(data)
+                        else:
+                            self.api_queue.put(data)
 
 
 if __name__ == '__main__':
     v = VirtualAPI(None)
-    v.stream_data(date_from='2021-01-29', time_from='10', time_to='11')
+    v.stream_data(date_from='2021-01-29', monitor_stocks=['005930', '000270'])

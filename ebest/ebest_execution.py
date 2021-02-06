@@ -1,4 +1,4 @@
-from event import FillEvent, JangoEvent
+from roboticks.event import FillEvent, JangoEvent
 import datetime
 import win32com.client
 import pythoncom

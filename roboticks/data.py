@@ -3,9 +3,8 @@
 import numpy as np
 import pandas as pd
 from multiprocessing import shared_memory
-from event import SecondEvent
-from bar import Bar
-import datetime
+from roboticks.event import SecondEvent
+from roboticks.bar import Bar
 import time
 
 second_table = {
@@ -22,11 +21,13 @@ FIELD_TABLE = Bar.FIELD_TABLE
 
 
 class DataHandler:
-    def __init__(self, data_queues, port_queue, api_queue, monitor_stocks, source: str = 'csv'):
+    def __init__(self, data_queues, port_queue, api_queue, monitor_stocks, source: str = 'virtual'):
         """
-        source: csv, kiwoom, ebest, binance etc.
+        source: virtual, kiwoom, ebest, crypto etc.
         """
         print('Data Handler started')
+        print(f'Source: {source}')
+        print(f'Monitoring Stocks: {monitor_stocks}\n')
 
         # source마다 들어오는 데이터가 다를 수 있기 때문에 소스 구분을 확실히 한다.
         self.source = source
@@ -60,14 +61,14 @@ class DataHandler:
         del sec_array
 
         print('Shared Memory array를 생성하였습니다.')
-        print(f'[Second Bar Array] Memory: {self.sec_mem.name} / Shape: {self.sec_mem_shape} / Size: {self.sec_mem_size / 1e6} MBs')
+        print(f'[Second Bar Array] Memory: {self.sec_mem.name} / Shape: {self.sec_mem_shape} / Size: {self.sec_mem_size / 1e6} MBs\n')
 
         # ohlcv & 호가 5단계
         self.current_bar_array = np.zeros([self.symbol_cnt, len(FIELD_TABLE.keys())])
-        # 들어오지않은 데이터는 NaN 값으로 처리해야함
-        self.current_bar_array.fill(np.nan)
-        self.start_time = None
+        self.current_bar_array.fill(np.nan) # 들어오지않은 데이터는 NaN 값으로 처리해야함
         self.hoga_keys = list(FIELD_TABLE.keys())[FIELD_TABLE["sell_hoga1"]:]
+
+        self.start_time = None # 1초가 흘렀음을 파악하는 방법 (update_shared_memory에서 사용)
 
         # # API 데이터를 소켓으로 받아올 수도 있다.
         # context = zmq.Context()
@@ -93,15 +94,23 @@ class DataHandler:
             self.current_bar_array[code_idx][FIELD_TABLE['sell_hoga1']:] = hoga_arr
 
     def initialize_second_bar(self):
-        # 1초가 지나면 current_bar_array 초기화 진행
-        # print("Update_second_bars: ", self.sec_mem_array)
-
         prev_upper = self.sec_mem_array[:, 1:, :]
         self.sec_mem_array[:, 0:-1, :] = prev_upper  # 위의 한줄을 제외하고 위로 올린다
         self.sec_mem_array[:, -1, :] = self.current_bar_array
+        
+        # 1초 데이터가 업데이트 되었다고 모든 Strategy에게 SecondEvent 전송
         m_e = SecondEvent()
-        self.port_queue.put(m_e)
-        [q.put(m_e) for q in self.data_queues]
+        _ = [q.put(m_e) for q in self.data_queues]
+        if self.source != 'virtual':
+            """
+            virtual이면 백테스트 모드이다.
+            파일에서 읽어오는 데이터를 Portfolio/Strategy 양쪽에 뿌리는데
+            Strategy의 연산 속도가 오래 걸릴 수록 둘의 싱크가 안 맞을 위험이 있다.
+            그래서 백테스팅 모드에서는 port_queue로 SecondEvent를 보내지 않고,
+            Strategy에서 직접 port_queue로 이벤트를 전송해준다. (그 말은 백테스팅 모드를 지원하는 전략은
+                                                             port_queue로 이벤트를 전송하는 기능을 직접 추가해야한다.)
+            """
+            self.port_queue.put(m_e)
 
         cur_price_arr = self.current_bar_array[:, FIELD_TABLE['current_price']]
         cur_price_arr = cur_price_arr.reshape(self.symbol_cnt, 1)
@@ -116,35 +125,23 @@ class DataHandler:
         if time.time() < self.start_time + 1:
             self.update_second_bars(data, code_idx)
         else:
-            self.initialize_second_bar()
-            # 1초지나서 들어온 tick_data는 initialize 후 업데이트
+            self.initialize_second_bar() # 1초지나서 들어온 tick_data는 initialize 후 업데이트
             self.update_second_bars(data, code_idx)
-            # reset_time
-            self.start_time = self.start_time + 1
+            self.start_time = self.start_time + 1 # reset_time
 
     def start_event_loop(self):
-        market_open = False
         self.start_time = time.time()
+
         while True:
             data = self.api_queue.get()
-            # 장 중간에 시작할때는 어떻게 해야 할까?
-            market_open = True
-            if market_open:
-                if data['code'] in self.symbol_list:
-                    # backtest할때는 전종목 데이터를 보내는 경우도 있기 때문에 필터하여 업데이트하기
-                    self.update_shared_memory(data)
-                else:
-                    continue
 
-            if data['type'] == "Market_Open":
-                market_open = True
-                self.start_time = time.time()
-                print("장시작!! : ", datetime.datetime.now())
-            elif data['type'] == "Market_Close":
-                print("DataHandler: 장 종료")
-                break
+            if data['code'] in self.symbol_list:
+                # backtest할때는 전종목 데이터를 보내는 경우도 있기 때문에 필터하여 업데이트하기
+                self.update_shared_memory(data)
+            else:
+                continue
 
-
+        ##### LEGACY #####
         # # 초봉 업데이트(초봉이 아닌 틱봉인듯)
         # # tick/hoga 모두 업데이트해준다 (dequeue하는 방식!!)
         # if data['type'] == 'tick':

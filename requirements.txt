@@ -9,6 +9,5 @@ PyQt5
 PyQt5-sip
 python-dateutil
 pytz
-pywin32
 pyzmq
 requests

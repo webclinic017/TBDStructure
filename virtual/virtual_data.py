@@ -1,6 +1,8 @@
 import os
 import time
+import platform
 import pandas as pd
+import os.path as path
 
 trade_cols = [
     'code',
@@ -83,8 +85,13 @@ class VirtualAPI:
         print('Virtual Data Source Initialized')
         self.api_queue = api_queue
 
-        self.stocks_path = r'G:\공유 드라이브\Project_TBD\Stock_Data\real_time\kiwoom_stocks'
-        self.futures_path = r'G:\공유 드라이브\Project_TBD\Stock_Data\real_time\kiwoom_futures'
+        if platform.platform().split('-')[0] == 'macOS':
+            user_path = path.expanduser('~')
+            self.stocks_path = f'{user_path}/Google Drive/공유 드라이브/Project_TBD/Stock_Data/real_time/kiwoom_stocks'
+            self.futures_path = f'{user_path}/Google Drive/공유 드라이브/Project_TBD/Stock_Data/real_time/kiwoom_futures'
+        else:
+            self.stocks_path = r'G:\공유 드라이브\Project_TBD\Stock_Data\real_time\kiwoom_stocks'
+            self.futures_path = r'G:\공유 드라이브\Project_TBD\Stock_Data\real_time\kiwoom_futures'
 
         self._get_dates()
 

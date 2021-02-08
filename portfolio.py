@@ -310,10 +310,10 @@ class Portfolio(StaticBar):
             event = self.port_queue.get()
             try:
                 if event.type == 'SECOND':
-                    cnt += 1
+                    # cnt += 1
                     # print(event)
-                    if cnt % 60 == 1:
-                        print(event, cnt)
+                    # if cnt % 60 == 1:
+                    print(event)
                     self.update_timeindex(event)
 
                 elif event.type == 'SIGNAL':

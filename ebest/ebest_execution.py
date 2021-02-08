@@ -147,6 +147,8 @@ class XQ_event_handler:
             if tappamt == '':
                 tappamt = 0
 
+            print(sunamt)
+
             est_cash = int(sunamt) - int(tappamt)
             jango_event = JangoEvent(est_cash=est_cash)
             Ebest.events.put(jango_event)

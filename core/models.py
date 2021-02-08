@@ -70,7 +70,7 @@ class PortHistory(models.Model):
     price = models.IntegerField()
 
     def __str__(self):
-        return f'{self.user.username} {self.date} {self.strategy} {self.trade_stock}'
+        return f'{self.user.username} {self.date} {self.strategy} {self.traded_stock}'
 
 
 class OHLCV(models.Model):

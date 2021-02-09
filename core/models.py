@@ -43,7 +43,7 @@ class Strategy(models.Model):
     user = models.ForeignKey(User,
                              on_delete=models.CASCADE,
                              related_name='strategy')
-    account_num = models.CharField(max_length=100, blank=True, null=True)
+    account_num = models.CharField(max_length=250, blank=True, null=True)
     strategy_name = models.CharField(max_length=100) # 전략 이름
     using_strategy = models.CharField(max_length=100) # 사용하는 전략
     source = models.CharField(max_length=30, blank=True, null=True)

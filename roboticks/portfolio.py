@@ -294,7 +294,7 @@ class Portfolio(StaticBar):
                     # print(event)
                     if cnt % 60 == 1:
                         print(event, cnt)
-                    self.update_timeindex(event)
+                    self.update_timeindex()
 
                 elif event.type == 'SIGNAL':
                     print(event)

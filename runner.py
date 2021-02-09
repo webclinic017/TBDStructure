@@ -2,6 +2,7 @@ import sys
 import traceback
 from PyQt5.QtWidgets import QApplication
 from multiprocessing import Queue, Process
+import pandas as pd
 
 from roboticks.data import DataHandler
 from roboticks.portfolio import Portfolio
@@ -52,6 +53,7 @@ class Runner:
         self.strategies = {}
         self.symbol_list = {}    # 전략별 트래킹하는 종목 리스트
         self.monitor_stocks = []
+        self.strategy_acc_no = {}
 
     def init_strategy(self, strategy_name: str):
         """
@@ -71,6 +73,9 @@ class Runner:
 
                 self.strategies[strategy] = STRATEGY[st['using_strategy']]
 
+                # Execution에서 "오늘" trade 할 전략들에 대한 계좌번호가 필요함. Dict 형식으로 던져주기
+                self.strategy_acc_no[strategy] = st['account_num']
+
                 # adding universe
                 self.symbol_list[strategy] = list(set(self.db.universe()))
 
@@ -85,12 +90,14 @@ class Runner:
             print(f'{strategy_name}은 존재하지 않습니다. STRATEGY 상수를 확인해주시기 바랍니다.')
             print(traceback.format_exc())
 
-    def update_strategy(self, strategy_name, using_strategy=None, source=None, server_type=None, capital=None, currency=None, monitor_stocks=[]):
+    def update_strategy(self, strategy_name, account_num=None, using_strategy=None, source=None, server_type=None,
+                        capital=None, currency=None, universe=[]):
         self.db.set_strategy(strategy_name)
-        self.db.save_strategy(using_strategy=using_strategy, source=source, server_type=server_type, capital=capital, currency=currency)
-        self.db.add_to_universe(symbol=monitor_stocks)
+        self.db.save_strategy(using_strategy=using_strategy, account_num=account_num, source=source, server_type=server_type,
+                              capital=capital, currency=currency)
+        self.db.add_to_universe(symbol=universe)
 
-    def start_trading(self, source: str, date_from: str = None, date_to: str = None, exclude: list = []):
+    def start_trading(self, source: str, date_from: str = None, date_to: str = None, exclude: list = [], server: str = "demo"):
         """
         source: virtual, kiwoom, ebest, crypto
 
@@ -103,7 +110,7 @@ class Runner:
         if len(self.strategies) == 0:
             raise Exception('전략 설정을 먼저 하고 실행해주세요. (add_strategy를 실행하여야 합니다.)')
         else:
-            # Data Handler로 넘길 data_queues 생성
+            # Data Handler로 넘길 data_queues 생성 (add_strategy와 곂침)
             self.data_queues = [Queue() for _ in range(len(self.strategies))]
 
         if source == 'virtual' and date_from is None:
@@ -124,6 +131,7 @@ class Runner:
             sec_mem_dtype = shm_info['sec_mem_dtype']
         else:
             sec_mem_name, sec_mem_shape, sec_mem_dtype = None, None, None
+            print("Shared_Memory Not Defined...")
 
         # STEP #2: Portfolio process
         if 'portfolio' not in exclude:
@@ -136,16 +144,17 @@ class Runner:
 
         # STEP #4: Execution process
         if 'execution' not in exclude:
-            ep = Process(target=self._execution_process, args=(self.port_queue, self.order_queue, server, source), name="ExecutionHandler")
+            ep = Process(target=self._execution_process, args=(self.port_queue, self.order_queue, server,
+                                                               source, self.strategy_acc_no), name="ExecutionHandler")
             ep.start()
 
         # STEP #5: Main thread program (source programs)
         if source == 'virtual':
             self._init_virtual_setup(date_from, date_to)
         elif source == 'kiwoom':
-            self._init_kiwoom_setup()
+            self._init_kiwoom_setup(self.monitor_stocks)
         elif source == 'ebest':
-            self._init_ebest_setup()
+            self._init_ebest_setup(self.monitor_stocks)
         elif source == 'crypto':
             self._init_crypto_setup()
 
@@ -172,11 +181,12 @@ class Runner:
                       sec_mem_dtype=sec_mem_dtype)
         e.start_event_loop()
 
-    def _execution_process(self, port_queue, order_queue, server, source):
+    def _execution_process(self, port_queue, order_queue, server, source, strategy_acc_no):
         """
-        이베스트 객체 분리시켜서 주문은 무조건 order_queue로 넣기
+        이베스트 객체 분리시켜서 주문은 무조건 order_queue로 넣기 (order_queue 사용불가, ex 에서 put 불가)
+        server : "demo" 모의투자, "real" 실제투자
         """
-        ex = ExecutionHandler(port_queue, order_queue, server, source)
+        ex = ExecutionHandler(port_queue, order_queue, server, source, strategy_acc_no)
         ex.start_execution_loop()
 
     def _strategy_process(self, id, strategy_cls, strategy_name, strategy_universe, sec_mem_name, sec_mem_shape, sec_mem_dtype, source):
@@ -226,20 +236,23 @@ if __name__ == '__main__':
 
     # 전략이 없다면 생성한 다음 add_strategy를 한다.
     r.update_strategy(
-        strategy_name='strategy_1_first',
+        strategy_name='ma',
+        account_num=55501062547,
         using_strategy='strategy_1',
         capital=1000000,
-        monitor_stocks=['005930', '000020', '000030']
+        universe=['005930', '096530'] # ['005930', '096530', "111R2000", "1CLR2000"]
     )
     r.update_strategy(
-        strategy_name='strategy_1_second',
+        strategy_name='arbit',
+        account_num=55501062547, # 주식선물 잔고처리 구현안댐, 주식 계좌로 임시 test
         using_strategy='strategy_1',
         capital=10000000,
-        monitor_stocks=['005930', '000270']
+        universe=["111R2000", "1CLR2000"]
     )
 
-    r.add_strategy(['strategy_1_first', 'strategy_1_second'])
+    r.add_strategy(['ma', 'arbit'])
 
-    r.start_trading(source='virtual', date_from='2021-02-03', exclude=['execution'])
+    # r.start_trading(source='virtual', date_from='2021-02-03', exclude=['execution'])
+    r.start_trading(source='ebest', server="demo")
 
-    print('r')
+    print('####### START TRADING #######')

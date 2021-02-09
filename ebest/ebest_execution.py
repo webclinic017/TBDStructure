@@ -4,6 +4,7 @@ import win32com.client
 import pythoncom
 import pandas as pd
 import threading
+import time
 
 
 # Ebest: Object
@@ -33,6 +34,8 @@ class Ebest:
     CSPAT00600_request = None  # TR: 주식 주문 함수
     CFOAT00100_request = None  # TR: 주식선물 주문 함수
     events = None
+
+    strategy_acc_no = {}
 
 
 # Ebest: Real
@@ -147,9 +150,13 @@ class XQ_event_handler:
             if tappamt == '':
                 tappamt = 0
 
+            # 가끔씩 에러나서 확인차 찍어놓음
+            print(sunamt)
+
             est_cash = int(sunamt) - int(tappamt)
-            jango_event = JangoEvent(est_cash=est_cash)
-            Ebest.events.put(jango_event)
+            Ebest.acc_balance["est_cash"] = est_cash
+            # jango_event = JangoEvent(est_cash=est_cash)
+            # Ebest.events.put(jango_event)
 
             for i in range(occurs_count):
                 expcode = self.GetFieldData("t0424OutBlock1", "expcode", i)
@@ -166,8 +173,8 @@ class XQ_event_handler:
                 tt["종목구분"] = self.GetFieldData("t0424OutBlock1", "jonggb", i)
                 tt["수익률"] = float(self.GetFieldData("t0424OutBlock1", "sunikrt", i))
 
-                jango_event = JangoEvent(symbol=expcode, quantity=tt['잔고수량'], market_value=tt["평가금액"])
-                Ebest.events.put(jango_event)
+                # jango_event = JangoEvent(strategy_id="ma", symbol=expcode, quantity=tt['잔고수량'], market_value=tt["평가금액"])
+                # Ebest.events.put(jango_event)
 
             print("잔고내역 %s" % Ebest.acc_balance, flush=True)
 
@@ -195,10 +202,11 @@ class XS_event_handler:
 
 # Ebest: Exec
 class EbestExec:
-    def __init__(self, events, server="demo"):
+    def __init__(self, events, server="demo", strategy_acc_no={}):
         print("EbestAPI Execution started")
         Ebest.events = events
         Ebest.server = server
+        Ebest.strategy_acc_no = strategy_acc_no
 
         Ebest.credentials = pd.read_csv("./credentials/credentials.csv", index_col=0, dtype=str).loc[server, :]
 
@@ -212,11 +220,23 @@ class EbestExec:
             pythoncom.PumpWaitingMessages()
 
         # 잔고: TR
-        Ebest.tr_event = win32com.client.DispatchWithEvents("XA_DataSet.XAQuery", XQ_event_handler)
-        Ebest.tr_event.ResFileName = "C:/eBEST/xingAPI/Res/t0424.res"
-        Ebest.t0424_request = self.t0424_request
-        Ebest.acc_balance = {}
-        Ebest.t0424_request(cts_expcode="", next=False)
+        for strategy_name, acc_no in Ebest.strategy_acc_no.items():
+            Ebest.tr_event = win32com.client.DispatchWithEvents("XA_DataSet.XAQuery", XQ_event_handler)
+            Ebest.tr_event.ResFileName = "C:/eBEST/xingAPI/Res/t0424.res"
+            Ebest.t0424_request = self.t0424_request
+            Ebest.acc_balance = {}
+            Ebest.t0424_request(cts_expcode="", next=False, acc_no=acc_no)
+
+            for k, v in Ebest.acc_balance.items():
+                if k == "est_cash":
+                    jango_event = JangoEvent(strategy_id=strategy_name, est_cash=Ebest.acc_balance["est_cash"])
+                    Ebest.events.put(jango_event)
+                else:
+                    jango_event = JangoEvent(strategy_id=strategy_name, symbol=k,
+                                             quantity=Ebest.acc_balance["잔고수량"], market_value=Ebest.acc_balance["평가금액"])
+                    Ebest.events.put(jango_event)
+
+            time.sleep(1)
 
         # 주식 주문: TR
         Ebest.CSPAT00600_event = win32com.client.DispatchWithEvents("XA_DataSet.XAQuery", XQ_event_handler)
@@ -266,12 +286,12 @@ class EbestExec:
         pythoncom.CoUninitialize()
         # threading.Thread(target=self.start_real_events).join()
 
-    def t0424_request(self, cts_expcode=None, next=None):
+    def t0424_request(self, cts_expcode=None, next=None, acc_no=None):
         # 주식 잔고
         Ebest.tr_event = win32com.client.DispatchWithEvents("XA_DataSet.XAQuery", XQ_event_handler)
 
         Ebest.tr_event.ResFileName = "C:/eBEST/xingAPI/Res/t0424.res"
-        Ebest.tr_event.SetFieldData("t0424InBlock", "accno", 0, Ebest.acc_no_stock)
+        Ebest.tr_event.SetFieldData("t0424InBlock", "accno", 0, acc_no)
         Ebest.tr_event.SetFieldData("t0424InBlock", "passwd", 0, Ebest.acc_pw)
         Ebest.tr_event.SetFieldData("t0424InBlock", "prcgb", 0, "1")
         Ebest.tr_event.SetFieldData("t0424InBlock", "chegb", 0, "2")

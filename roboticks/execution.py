@@ -1,13 +1,14 @@
 import pandas as pd
+from db import UserDB, PriceDB
 
 try:
     from ebest import ebest_execution
 except:
-    print('Ebest와 관련된 모듈을 제대로 install해주기 바랍니다.')
+    print('Ebest와 관련된 Execution 모듈을 제대로 install 해주기 바랍니다.')
 
 
 class ExecutionHandler:
-    def __init__(self, port_queue, order_queue, server="demo", source='virtual'):
+    def __init__(self, port_queue, order_queue, server="demo", source='virtual', strategy_acc_no={}):
         """
         source: backtest, kiwoom, ebest, binance etc.
         """
@@ -17,10 +18,17 @@ class ExecutionHandler:
 
         self.source = source
 
+        self.strategy_acc_no = strategy_acc_no # {strategy_name: account_num} for 잔고 업데이트
+
         if self.source == "ebest":
+            if server == "demo":
+                server = server
+            elif server == "real":
+                server = "hts"
+
             self.credentials = pd.read_csv("./credentials/credentials.csv", index_col=0, dtype=str).loc[server, :]
             ebest_execution.EbestExec(self.order_queue,
-                                      server=server)  # FillEvent는 XR_event_handler 참조, port_queue로 Fill 보냄
+                                      server=server, strategy_acc_no=self.strategy_acc_no)  # FillEvent는 XR_event_handler 참조, port_queue로 Fill 보냄
 
     def execute_order(self, event):
         if self.source == 'virtual':

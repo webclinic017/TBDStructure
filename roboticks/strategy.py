@@ -22,6 +22,7 @@ class Strategy(StaticBar):
 
         self.SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(monitor_stocks))} # data handler에서 트래킹하고 있는
                                                                                            # 유니버스 전체
+                                                                                           # sorted 필수, 순서 중요
 
         # 상속하는 Bar 클래스의 SYMBOL_TABLE 바꿔주기!
         # self.bar.set_symbol_table({symbol: i for i, symbol in enumerate(sorted(monitor_stocks))})

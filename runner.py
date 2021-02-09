@@ -85,7 +85,7 @@ class Runner:
                 self.data_queues.append(Queue())
 
             for st, uni in self.symbol_list.items():
-                self.monitor_stocks = list(set(self.monitor_stocks + uni))
+                self.monitor_stocks = sorted(list(set(self.monitor_stocks + uni)))
         except:
             print(f'{strategy_name}은 존재하지 않습니다. STRATEGY 상수를 확인해주시기 바랍니다.')
             print(traceback.format_exc())

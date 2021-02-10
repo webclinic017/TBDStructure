@@ -5,6 +5,7 @@ from multiprocessing import shared_memory
 import numpy as np
 from math import floor
 import traceback
+import pandas as pd
 
 
 class Portfolio(StaticBar):
@@ -111,7 +112,7 @@ class Portfolio(StaticBar):
 
             # Append the current holdings
             self.all_holdings[st].append(hold_dict)
-            # pd.DataFrame(self.all_holdings).to_csv("all_holdings.csv")
+            pd.DataFrame(self.all_holdings[st]).to_csv(st+"_all_holdings.csv")
 
     def generate_naive_order(self, signal):
         """
@@ -152,6 +153,7 @@ class Portfolio(StaticBar):
             order = OrderEvent(symbol, order_type, abs(cur_quantity), 'BUY', est_fill_cost)
         return order
 
+    # 이어서 개발하기
     def generate_sf_arbit_order(self, signal):
         order1 = None
         order2 = None
@@ -292,7 +294,7 @@ class Portfolio(StaticBar):
                 if event.type == 'SECOND':
                     cnt += 1
                     # print(event)
-                    if cnt % 60 == 1:
+                    if cnt % 10 == 1:
                         print(event, cnt)
                     self.update_timeindex()
 

@@ -1,17 +1,7 @@
+# Event의 strategy_id == strategy_name ex) ma, arbit
+
 class Event(object):
     pass
-
-
-# class MinuteEvent(Event):
-#     def __init__(self, symbol, date, current_price, open_price, high_price, low_price, cum_volume):
-#         self.type = 'MINUTE'
-#         self.symbol = symbol
-#         self.date = date
-#         self.current_price = current_price
-#         self.open_price = open_price
-#         self.high_price = high_price
-#         self.low_price = low_price
-#         self.cum_volume = cum_volume
 
 class SecondEvent(Event):
     def __init__(self):

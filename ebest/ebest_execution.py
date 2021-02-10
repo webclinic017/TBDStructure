@@ -35,6 +35,8 @@ class Ebest:
     CFOAT00100_request = None  # TR: 주식선물 주문 함수
     events = None
 
+    jango_sucess = True
+
     strategy_acc_no = {}
 
 
@@ -79,7 +81,7 @@ class XR_event_handler:
             fill_event = FillEvent(datetime.datetime.utcnow(), accno,
                                    shtnIsuno,
                                    'ebest',
-                                   int(execqty), direction, fill_cost, None)  # , event.est_fill_cost) 슬리피지 계산위해 고려해보기?
+                                   int(execqty), direction, fill_cost, None, None)  # , event.est_fill_cost) 슬리피지 계산위해 고려해보기?
             Ebest.events.put(fill_event)
 
         # 선물주문정정취소 (보완 필요)
@@ -150,8 +152,11 @@ class XQ_event_handler:
             if tappamt == '':
                 tappamt = 0
 
-            # 가끔씩 에러나서 확인차 찍어놓음
-            print(sunamt)
+            if sunamt == '':
+                Ebest.jango_sucess = False
+                sunamt = 0
+                print("@@@@@@@@@@@@@추정순자산 오류: 잔고 재요청...Debugging 필요@@@@@@@@@@@@@")
+                # raise Exception("설정한 계좌의 잔고가 없습니다 or 잔고요청 수신 실패")
 
             est_cash = int(sunamt) - int(tappamt)
             Ebest.acc_balance["est_cash"] = est_cash
@@ -186,7 +191,7 @@ class XQ_event_handler:
                 Ebest.tr_ok = True
 
     def OnReceiveMessage(self, systemError, messageCode, message):
-        print("systemError: %s, messageCode: %s, message: %s" % (systemError, messageCode, message), flush=True)
+        print("주식잔고조회 TR systemError: %s, messageCode: %s, message: %s" % (systemError, messageCode, message))
 
 
 # Ebest: Login
@@ -227,13 +232,17 @@ class EbestExec:
             Ebest.acc_balance = {}
             Ebest.t0424_request(cts_expcode="", next=False, acc_no=acc_no)
 
+            if Ebest.jango_sucess is False:
+                Ebest.t0424_request(cts_expcode="", next=False, acc_no=acc_no)
+
+
             for k, v in Ebest.acc_balance.items():
                 if k == "est_cash":
                     jango_event = JangoEvent(strategy_id=strategy_name, est_cash=Ebest.acc_balance["est_cash"])
                     Ebest.events.put(jango_event)
                 else:
                     jango_event = JangoEvent(strategy_id=strategy_name, symbol=k,
-                                             quantity=Ebest.acc_balance["잔고수량"], market_value=Ebest.acc_balance["평가금액"])
+                                             quantity=Ebest.acc_balance[k]["잔고수량"], market_value=Ebest.acc_balance[k]["평가금액"])
                     Ebest.events.put(jango_event)
 
             time.sleep(1)

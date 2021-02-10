@@ -1,7 +1,7 @@
 from roboticks.event import OrderEvent
 from roboticks.staticbar import StaticBar
 import datetime
-from multiprocessing import shared_memory
+from multiprocessing import shared_memory, current_process
 import numpy as np
 from math import floor
 import traceback
@@ -9,16 +9,17 @@ import pandas as pd
 
 
 class Portfolio(StaticBar):
-    def __init__(self, port_queue, order_queue, initial_caps: dict, monitor_stocks: list,
+    def __init__(self, port_queue, order_queue, initial_caps: dict, monitor_stocks: dict,
                  sec_mem_name, sec_mem_shape, sec_mem_dtype):
         """
         initial caps는 Runner에서 생성하는 initial_cap 딕셔너리와 동일하다고 생각하면 된다.
         """
-        print('Portfolio started')
+        print('Portfolio started @',current_process().name)
         self.port_queue = port_queue
         self.order_queue = order_queue
 
-        self.symbol_list = monitor_stocks
+        self.monitor_stocks = monitor_stocks
+        self.symbol_list = sum(list(monitor_stocks.values()), [])
         self.initial_caps = initial_caps
 
         self.sec_mem_shape = sec_mem_shape
@@ -26,37 +27,37 @@ class Portfolio(StaticBar):
         self.sec_mem_array = np.ndarray(shape=sec_mem_shape, dtype=sec_mem_dtype,
                                         buffer=self.sec_mem.buf)
 
-        self.SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(monitor_stocks))}
+        self.SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(self.symbol_list))}
 
-        self.all_positions = {st: self.construct_all_positions() for st, _ in self.initial_caps.items()}
-        self.current_positions = {st: self.construct_current_positions() for st, _ in self.initial_caps.items()}
+        self.all_positions = {st: self.construct_all_positions(st) for st, _ in self.initial_caps.items()}
+        self.current_positions = {st: self.construct_current_positions(st) for st, _ in self.initial_caps.items()}
         self.all_holdings = {st: self.construct_all_holdings(st) for st, _ in self.initial_caps.items()}
         self.current_holdings = {st: self.construct_current_holdings(st) for st, _ in self.initial_caps.items()}
 
-    def construct_all_positions(self):
+    def construct_all_positions(self, strategy_name):
         """
         Constructs the positions list using the start_date to determine when the time index will begin
         종목별 보유수량
         
         현재는 툴을 시작하면 자동으로 모두 0으로 설정하지만, 추후 실제 api로 보유 수량을 확인하여 업데이트해주도록 수정
         """
-        all_pos_dict = {k: 0 for k in self.symbol_list}
+        all_pos_dict = {k: 0 for k in self.monitor_stocks[strategy_name]}
         all_pos_dict["datetime"] = datetime.datetime.now()
         return [all_pos_dict]
 
-    def construct_current_positions(self):
+    def construct_current_positions(self, strategy_name):
         """
         This constructs the dictionary which will hold the instantaneous position of the portfolio
         across all symbols.
         """
-        return {k: 0 for k in self.symbol_list}
+        return {k: 0 for k in self.monitor_stocks[strategy_name]}
 
     def construct_all_holdings(self, strategy_name):
         """
         Constructs the holding list using the start_date to determine when the time index will begin
         종목별 평가금액, 현금, 수수료
         """
-        d = {k: 0.0 for k in self.symbol_list}
+        d = {k: 0.0 for k in self.monitor_stocks[strategy_name]}
         d['cash'] = self.initial_caps[strategy_name]
         d['commission'] = 0.0
         d['total_value'] = self.initial_caps[strategy_name]
@@ -67,7 +68,7 @@ class Portfolio(StaticBar):
         This constructs the dictionary which will hold th instantaneous value of the portfolio
         across all symbols.
         """
-        d = {k: 0.0 for k in self.symbol_list}
+        d = {k: 0.0 for k in self.monitor_stocks[strategy_name]}
         d['cash'] = self.initial_caps[strategy_name]
         d['commission'] = 0.0
         d['total_value'] = self.initial_caps[strategy_name]
@@ -85,21 +86,21 @@ class Portfolio(StaticBar):
 
         # Update positions
         for st, _ in self.initial_caps.items():
-            pos_dict = {k: self.current_positions[st][k] for k in self.symbol_list}
+            pos_dict = {k: self.current_positions[st][k] for k in self.monitor_stocks[st]}
             pos_dict["datetime"] = latest_datetime
 
             # Append the current positions
             self.all_positions[st].append(pos_dict)
 
             # Update holdings
-            hold_dict = {k: 0.0 for k in self.symbol_list}
+            hold_dict = {k: 0.0 for k in self.monitor_stocks[st]}
             hold_dict["datetime"] = latest_datetime
             hold_dict['cash'] = self.current_holdings[st]['cash']
             hold_dict['commission'] = self.current_holdings[st]['commission']
             hold_dict['total_value'] = self.current_holdings[st]['cash']
             self.current_holdings[st]['commission'] = 0.0 # Commission 다시 0으로, 누적합이 되지않도록.
 
-            for s in self.symbol_list:
+            for s in self.monitor_stocks[st]:
                 # Approximation by current_price price
                 cur_price = self.get_latest_bar_value(self.sec_mem_array, s, self.SYMBOL_TABLE, 'current_price')
                 if cur_price == np.nan:  # 장시작후 초반에 가격이 업뎃 안돼면 0으로 들어옴, 전일 Holding Value로 대체해서 찍기.

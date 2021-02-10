@@ -32,7 +32,7 @@ class Strategy_1(Strategy):
         cnt = 0
 
         bought = {}
-        for s in self.symbol_list:
+        for s in self.strategy_universe:
             bought[s] = "OUT" # 나중엔 기존 포트 매입 종목 반영해야한다.
 
         while True:
@@ -42,7 +42,7 @@ class Strategy_1(Strategy):
             # print("Strat:", market)
             cnt += 1
 
-            for s in self.symbol_list:
+            for s in self.strategy_universe:
                 bars = self.latest_n_bars_value(symbol=s)
                 bar_date = self.latest_bar_datetime(symbol=s)
 

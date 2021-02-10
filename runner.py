@@ -51,8 +51,7 @@ class Runner:
         self.source = None       # 같은 소스를 공유하는 여러 전략 실행할 수 있음 (반대 x)
         self.initial_cap = {}    # 전략별 initial_cap
         self.strategies = {}
-        self.symbol_list = {}    # 전략별 트래킹하는 종목 리스트
-        self.monitor_stocks = []
+        self.monitor_stocks = {}  # 전략별 트래킹하는 종목 리스트
         self.strategy_acc_no = {}
 
     def init_strategy(self, strategy_name: str):
@@ -77,15 +76,13 @@ class Runner:
                 self.strategy_acc_no[strategy] = st['account_num']
 
                 # adding universe
-                self.symbol_list[strategy] = list(set(self.db.universe()))
+                self.monitor_stocks[strategy] = list(set(self.db.universe()))
 
                 # adding initial cap
                 self.initial_cap[strategy] = st['capital']
 
                 self.data_queues.append(Queue())
 
-            for st, uni in self.symbol_list.items():
-                self.monitor_stocks = sorted(list(set(self.monitor_stocks + uni)))
         except:
             print(f'{strategy_name}은 존재하지 않습니다. STRATEGY 상수를 확인해주시기 바랍니다.')
             print(traceback.format_exc())
@@ -203,7 +200,7 @@ class Runner:
         strategies = []
         id = 0
         for st, st_cls in self.strategies.items():
-            strategies.append(Process(target=self._strategy_process, args=(id, st_cls, st, self.symbol_list[st],
+            strategies.append(Process(target=self._strategy_process, args=(id, st_cls, st, self.monitor_stocks[st],
                                                                            sec_mem_name, sec_mem_shape, sec_mem_dtype, source)))
             id += 1
 

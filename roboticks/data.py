@@ -2,7 +2,7 @@
 # import datetime
 import numpy as np
 import pandas as pd
-from multiprocessing import shared_memory
+from multiprocessing import shared_memory, current_process
 from roboticks.event import SecondEvent
 from roboticks.bar import Bar
 import time
@@ -25,9 +25,9 @@ class DataHandler:
         """
         source: virtual, kiwoom, ebest, crypto etc.
         """
-        print('Data Handler started')
-        print(f'Source: {source}')
-        print(f'Monitoring Stocks: {monitor_stocks}\n')
+        print('Data Handler started@', current_process().name)
+        print(f'Source: {source} @', current_process().name)
+        print(f'Monitoring Stocks: {monitor_stocks} @', current_process().name)
 
         # source마다 들어오는 데이터가 다를 수 있기 때문에 소스 구분을 확실히 한다.
         self.source = source
@@ -37,7 +37,7 @@ class DataHandler:
         self.api_queue = api_queue
 
         # monitor stock list 받아서 symbol table 만들기
-        self.symbol_list = monitor_stocks
+        self.symbol_list = sum(list(monitor_stocks.values()), []) # 전략별 monitor dict를 flatten
         self.symbol_cnt = len(self.symbol_list)
         self.SYMBOL_TABLE = {symbol: i for i, symbol in enumerate(sorted(self.symbol_list))}
         # symbol_time_table: 최근 shared_memory에 업데이트된 시간

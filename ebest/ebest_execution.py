@@ -233,6 +233,7 @@ class EbestExec:
             Ebest.t0424_request(cts_expcode="", next=False, acc_no=acc_no)
 
             if Ebest.jango_sucess is False:
+                time.sleep(1)
                 Ebest.t0424_request(cts_expcode="", next=False, acc_no=acc_no)
 
 

@@ -31,17 +31,18 @@ class StockFuturesArbitrage(Strategy):
         :return:
         """
         bought = {}
-        for s in self.symbol_list:
+        for s in self.strategy_universe:
             bought[s] = "OUT"
         return bought
 
     def _init_pairs_dict(self):
         pair_dict = {}
-        for i in self.symbol_list:
+        for i in self.strategy_universe:
             if len(i) == 8:
                 pair_dict[i] = self.stock_futures_dict[i[1:3]]
         return pair_dict
 
+    # 만기일 수동 DB 관리가 제일 나을듯 (대체휴무일 지정시 만기일 밀림)
     def calc_expiration_dateime(self):
         if self.bars.get_latest_bar_datetime(sf_code)
 

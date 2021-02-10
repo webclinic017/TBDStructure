@@ -233,7 +233,7 @@ class Main:
     def __init__(self, api_queue, port_queue, order_queue, monitor_stocks):
         print("EbestAPI Data started")
 
-        MyObjects.monitor_stocks = monitor_stocks
+        MyObjects.monitor_stocks = sum(list(monitor_stocks.values()), []) # Ebest.monitor_stocks는 list
         MyObjects.api_queue = api_queue
 
         session = win32com.client.DispatchWithEvents("XA_Session.XASession", XS_event_handler)

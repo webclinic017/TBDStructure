@@ -36,7 +36,8 @@ class UserDB:
     def set_strategy(self, strategy):
         self.strategy = strategy
 
-    def save_strategy(self, strategy_name=None, account_num=None, using_strategy=None, source=None, server_type=None, capital=None, currency=None):
+    def save_strategy(self, strategy_name=None, account_num=None, account_num_fut=None, using_strategy=None, source=None,
+                      server_type=None, capital=None, currency=None):
         """
         모든 전략에는 전략명과 사용 전략을 명시해줘야 한다.
 
@@ -54,6 +55,7 @@ class UserDB:
             s = Strategy(
                 user=self.user,
                 account_num=account_num,
+                account_num_fut=account_num_fut,
                 strategy_name=strategy,
                 using_strategy=using_strategy,
                 source=source,
@@ -66,6 +68,7 @@ class UserDB:
             # 이미 데이터가 존재한다면 업데이트를 한다.
             update_data = {
                 'account_num': account_num,
+                'account_num_fut': account_num_fut,
                 'using_strategy': using_strategy,
                 'source': source,
                 'server_type': server_type,

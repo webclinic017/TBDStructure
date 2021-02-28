@@ -37,17 +37,18 @@ class PairSignalEvent(Event):
 
 
 class OrderEvent(Event):
-    def __init__(self, symbol, order_type, quantity, direction, est_fill_cost):
+    def __init__(self, symbol, order_type, quantity, direction, est_fill_cost, exchange):
         self.type = "ORDER"
         self.symbol = symbol
         self.order_type = order_type
         self.quantity = quantity
         self.direction = direction
         self.est_fill_cost = est_fill_cost
+        self.exchange = exchange
 
     def print_order(self):
-        print("Order: Symbols=%s, Type=%s, Quantity=%s, Direction=%s, est_Fill_Cost=%s" %
-              (self.symbol, self.order_type, self.quantity, self.direction, self.est_fill_cost))
+        print("Order: Symbols=%s, Type=%s, Quantity=%s, Direction=%s, est_Fill_Cost=%s, exchange=%s" %
+              (self.symbol, self.order_type, self.quantity, self.direction, self.est_fill_cost, self.exchange))
 
 
 class FillEvent(Event):
@@ -86,10 +87,11 @@ class FillEvent(Event):
 
 class JangoEvent(Event):
 
-    def __init__(self, strategy_id=None, symbol=None, quantity=None, market_value=None, est_cash=None):
+    def __init__(self, strategy_id=None, symbol=None, quantity=None, market_value=None, est_cash=None, fut_est_cash=None):
         self.type = "JANGO"
         self.strategy_id = strategy_id
         self.symbol = symbol
         self.market_value = market_value
         self.quantity = quantity
         self.est_cash = est_cash
+        self.fut_est_cash = fut_est_cash

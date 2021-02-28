@@ -6,6 +6,7 @@ import numpy as np
 from math import floor
 import traceback
 import pandas as pd
+import csv
 
 
 class Portfolio(StaticBar):
@@ -14,7 +15,7 @@ class Portfolio(StaticBar):
         """
         initial caps는 Runner에서 생성하는 initial_cap 딕셔너리와 동일하다고 생각하면 된다.
         """
-        print('Portfolio started @',current_process().name)
+        print('Portfolio started @', current_process().name)
         self.port_queue = port_queue
         self.order_queue = order_queue
 
@@ -33,6 +34,8 @@ class Portfolio(StaticBar):
         self.current_positions = {st: self.construct_current_positions(st) for st, _ in self.initial_caps.items()}
         self.all_holdings = {st: self.construct_all_holdings(st) for st, _ in self.initial_caps.items()}
         self.current_holdings = {st: self.construct_current_holdings(st) for st, _ in self.initial_caps.items()}
+
+        self.today_str = datetime.datetime.now().strftime("%Y-%m-%d")
 
     def construct_all_positions(self, strategy_name):
         """
@@ -98,7 +101,7 @@ class Portfolio(StaticBar):
             hold_dict['cash'] = self.current_holdings[st]['cash']
             hold_dict['commission'] = self.current_holdings[st]['commission']
             hold_dict['total_value'] = self.current_holdings[st]['cash']
-            self.current_holdings[st]['commission'] = 0.0 # Commission 다시 0으로, 누적합이 되지않도록.
+            self.current_holdings[st]['commission'] = 0.0  # Commission 다시 0으로, 누적합이 되지않도록.
 
             for s in self.monitor_stocks[st]:
                 # Approximation by current_price price
@@ -113,7 +116,12 @@ class Portfolio(StaticBar):
 
             # Append the current holdings
             self.all_holdings[st].append(hold_dict)
-            pd.DataFrame(self.all_holdings[st]).to_csv(st+"_all_holdings.csv")
+
+            # with open(self.today_str+'_all_holdings.csv', 'w', newline='') as csvfile:
+            #     fieldnames = ['first_name', 'last_name']
+            #     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            #     writer.writerow(hold_dict)
+            pd.DataFrame(self.all_holdings[st]).to_csv(st+"_"+self.today_str+"_all_holdings.csv")
 
     def generate_naive_order(self, signal):
         """
@@ -144,14 +152,14 @@ class Portfolio(StaticBar):
         order_type = 'MKT'  # 추후 지정가 주문도 고려필요
 
         if direction == 'LONG' and cur_quantity == 0:
-            order = OrderEvent(symbol, order_type, mkt_quantity, 'BUY', est_fill_cost)
+            order = OrderEvent(symbol, order_type, mkt_quantity, 'BUY', est_fill_cost, 'ebest')
         if direction == 'SHORT' and cur_quantity == 0:
-            order = OrderEvent(symbol, order_type, mkt_quantity, 'SELL', est_fill_cost)
+            order = OrderEvent(symbol, order_type, mkt_quantity, 'SELL', est_fill_cost, 'ebest')
 
         if direction == 'EXIT' and cur_quantity > 0:
-            order = OrderEvent(symbol, order_type, abs(cur_quantity), 'SELL', est_fill_cost)
+            order = OrderEvent(symbol, order_type, abs(cur_quantity), 'SELL', est_fill_cost, 'ebest')
         if direction == 'EXIT' and cur_quantity < 0:
-            order = OrderEvent(symbol, order_type, abs(cur_quantity), 'BUY', est_fill_cost)
+            order = OrderEvent(symbol, order_type, abs(cur_quantity), 'BUY', est_fill_cost, 'ebest')
         return order
 
     # 이어서 개발하기
@@ -170,32 +178,43 @@ class Portfolio(StaticBar):
 
         # 주식선물 8자리
         if len(short_symbol) == 8:
-            short_mkt_quantity = 1000000 / (short_cur_price * 10)  # 거래승수 10
+            short_mkt_quantity = 2000000 / (short_cur_price * 10)  # 거래승수 10
+            if short_mkt_quantity < 1:
+                print(f"{short_symbol} - {long_symbol} : 선물 1 계약 살 증거금 부족")
+                short_mkt_quantity = 0
+            else:
+                # Float를 Int로 내림
+                short_mkt_quantity = floor(short_mkt_quantity)
         else:
-            short_mkt_quantity = 0
+            short_mkt_quantity = None
+            raise Exception("Wrong Symbol Order @ Portfolio")
+
         # 주식 6자리
         if len(long_symbol) == 6:
             long_mkt_quantity = short_mkt_quantity * 10
         else:
-            print("Portfolio: Wrong Symbol")
-            long_mkt_quantity = 0
-            short_mkt_quantity = 0
+            long_mkt_quantity = None
+            short_mkt_quantity = None
+            raise Exception("Wrong Symbol Order @ Portfolio")
 
         # 예상 체결금액
         long_est_fill_cost = long_cur_price * long_mkt_quantity
         short_est_fill_cost = short_cur_price * short_mkt_quantity
 
         if direction == 'ENTRY' and long_cur_quantity == 0 and short_cur_quantity == 0:
-            order1 = OrderEvent(long_symbol, order_type, long_mkt_quantity, 'BUY', long_est_fill_cost)
-            order2 = OrderEvent(short_symbol, order_type, short_mkt_quantity, 'SELL', short_est_fill_cost)
+            order1 = OrderEvent(long_symbol, order_type, long_mkt_quantity, 'BUY', long_est_fill_cost, 'ebest')
+            order2 = OrderEvent(short_symbol, order_type, short_mkt_quantity, 'SELL', short_est_fill_cost, 'ebest')
 
         if direction == 'EXIT':
             if long_cur_quantity < 0:
                 long_est_fill_cost = long_cur_price * long_cur_quantity
-                order1 = OrderEvent(long_symbol, order_type, abs(long_cur_quantity), 'BUY', long_est_fill_cost)
+                order1 = OrderEvent(long_symbol, order_type, abs(long_cur_quantity), 'BUY', long_est_fill_cost, 'ebest')
             if short_cur_quantity > 0:
                 short_est_fill_cost = short_cur_price * short_cur_quantity
-                order2 = OrderEvent(short_symbol, order_type, abs(short_cur_quantity), 'SELL', short_est_fill_cost)
+                order2 = OrderEvent(short_symbol, order_type, abs(short_cur_quantity), 'SELL', short_est_fill_cost,
+                                    'ebest')
+            else:
+                raise Exception("Wrong Exit Order @ Portfolio")
 
         return order1, order2
 
@@ -224,7 +243,7 @@ class Portfolio(StaticBar):
         fill_dir = 1 if fill.direction == 'BUY' else -1
 
         # Update position list with new quantity
-        self.current_positions[fill.strategy_id][fill.symbol] += fill_dir * fill.quantity
+        self.current_positions[fill.strategy_id][fill.symbol] += fill_dir * abs(fill.quantity)
 
     def update_holdings_from_fill(self, fill):
         """
@@ -271,15 +290,21 @@ class Portfolio(StaticBar):
             if event.quantity is not None:
                 self.current_positions[st][event.symbol] = event.quantity
                 self.current_holdings[st][event.symbol] = event.market_value
-                self.current_holdings[st]["total_value"] = sum(keys for keys in self.current_holdings[st].values()) - \
-                                                       self.current_holdings[st]['total_value']
+
             else:
-                self.current_holdings[st]["cash"] = event.est_cash
-                self.current_holdings[st]["total_value"] = sum(keys for keys in self.current_holdings[st].values()) - \
+                if event.est_cash is not None:
+                    self.current_holdings[st]["cash"] = event.est_cash
+                elif event.fut_est_cash is not None:
+                    self.current_holdings[st]["fut_cash"] = event.fut_est_cash
+                else:
+                    raise Exception("Cash 정보 오류 @ Portfolio")
+
+            self.current_holdings[st]["total_value"] = sum(keys for keys in self.current_holdings[st].values()) - \
                                                        self.current_holdings[st]['total_value']
 
             print(self.current_holdings)
             print(self.current_positions)
+            pd.DataFrame(self.current_positions).to_csv("./strategies/"+st+"_"+self.today_str+"_initial_position.csv")
 
     def start_event_loop(self):
         """
@@ -321,4 +346,3 @@ class Portfolio(StaticBar):
 
             except:
                 print(traceback.format_exc())
-

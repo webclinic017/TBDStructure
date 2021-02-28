@@ -73,7 +73,10 @@ class Runner:
                 self.strategies[strategy] = STRATEGY[st['using_strategy']]
 
                 # Execution에서 "오늘" trade 할 전략들에 대한 계좌번호가 필요함. Dict 형식으로 던져주기
-                self.strategy_acc_no[strategy] = st['account_num']
+                if st['account_num_fut'] is not None:
+                    self.strategy_acc_no[strategy] = [st['account_num'], st['account_num_fut']] # 차익거래시 봐야하는 계좌가 두개/ 추후 더 확장가능성 있게 수정
+                else:
+                    self.strategy_acc_no[strategy] = st['account_num']
 
                 # adding universe
                 self.monitor_stocks[strategy] = list(set(self.db.universe()))
@@ -87,11 +90,11 @@ class Runner:
             print(f'{strategy_name}은 존재하지 않습니다. STRATEGY 상수를 확인해주시기 바랍니다.')
             print(traceback.format_exc())
 
-    def update_strategy(self, strategy_name, account_num=None, using_strategy=None, source=None, server_type=None,
-                        capital=None, currency=None, universe=[]):
+    def update_strategy(self, strategy_name, account_num=None, account_num_fut=None, using_strategy=None, source=None,
+                        server_type=None, capital=None, currency=None, universe=[]):
         self.db.set_strategy(strategy_name)
-        self.db.save_strategy(using_strategy=using_strategy, account_num=account_num, source=source, server_type=server_type,
-                              capital=capital, currency=currency)
+        self.db.save_strategy(using_strategy=using_strategy, account_num=account_num, account_num_fut=account_num_fut, source=source,
+                              server_type=server_type, capital=capital, currency=currency)
         self.db.add_to_universe(symbol=universe)
 
     def start_trading(self, source: str, date_from: str = None, date_to: str = None, exclude: list = [], server: str = "demo"):
@@ -229,25 +232,31 @@ class Runner:
 
 
 if __name__ == '__main__':
-    r = Runner(username='ppark9553@gmail.com')
+    r = Runner(username='jdh00055@gmail.com')
+
+    # 전략 Monitor_Stock Universe 초기화
+    r.db.remove_strategy_from_db('sf_arbit')
 
     # 전략이 없다면 생성한 다음 add_strategy를 한다.
     r.update_strategy(
-        strategy_name='ma',
-        account_num=55501062547,
-        using_strategy='strategy_1',
-        capital=1000000,
-        universe=['005930', '096530'] # ['005930', '096530', "111R2000", "1CLR2000"]
+        strategy_name='sf_arbit',
+        account_num=55501062547, # 주식계좌
+        account_num_fut=55551040093, # 선물계좌
+        using_strategy='stock_futures_arbitrage',
+        capital=None,
+        universe=['091990', '096530', "1E6R3000", "1CLR3000"]
     )
-    r.update_strategy(
-        strategy_name='arbit',
-        account_num=55501062547, # 주식선물 잔고처리 구현안댐, 주식 계좌로 임시 test
-        using_strategy='strategy_1',
-        capital=10000000,
-        universe=["111R2000", "1CLR2000"]
-    )
+    # r.update_strategy(
+    #     strategy_name='ma',
+    #     account_num=55501062547,  # 주식계좌
+    #     account_num_fut=55551040093,  # 선물계좌
+    #     using_strategy='strategy_1',
+    #     capital=None,
+    #     universe=['005930', '096530']  # ['005930', '096530', "111R2000", "1CLR2000"]
+    # )
 
-    r.add_strategy(['ma', 'arbit'])
+    # r.add_strategy(['ma', 'arbit'])
+    r.add_strategy(['sf_arbit'])
 
     # r.start_trading(source='virtual', date_from='2021-02-03', exclude=['execution'])
     r.start_trading(source='ebest', server="demo")

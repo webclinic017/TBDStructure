@@ -18,7 +18,7 @@ class ExecutionHandler:
 
         self.source = source
 
-        self.strategy_acc_no = strategy_acc_no # {strategy_name: account_num} for 잔고 업데이트
+        self.strategy_acc_no = strategy_acc_no # {strategy_name: [account_num1, account_num2]} for 잔고 업데이트
 
         if self.source == "ebest":
             if server == "demo":

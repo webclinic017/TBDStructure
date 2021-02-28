@@ -44,6 +44,7 @@ class Strategy(models.Model):
                              on_delete=models.CASCADE,
                              related_name='strategy')
     account_num = models.CharField(max_length=250, blank=True, null=True)
+    account_num_fut = models.CharField(max_length=250, blank=True, null=True) # 선물계좌도 하나의 Stratey 에서 관리하기 위해 임시방편으로 추가!
     strategy_name = models.CharField(max_length=100) # 전략 이름
     using_strategy = models.CharField(max_length=100) # 사용하는 전략
     source = models.CharField(max_length=30, blank=True, null=True)

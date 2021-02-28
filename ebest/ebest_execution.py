@@ -20,6 +20,8 @@ class Ebest:
     acc_pw = credentials["acc_pw"]  # 계좌비밀번호
 
     acc_balance = {}
+    fut_acc_balance = {}
+    total_acc_balance = {}
 
     tr_event = None  # TR요청에 대한 API 정보
     CSPAT00600_event = None  # 주식주문
@@ -31,6 +33,8 @@ class Ebest:
     C01_event = None  # 선물체결에 대한 데이터
 
     t0424_request = None  # TR: 잔고 함수
+    t0441_request = None # TR: 주식 선물 잔고 함수
+    CFOEQ11100_request = None # TR: 주식 선물 잔고 평가예탁금액
     CSPAT00600_request = None  # TR: 주식 주문 함수
     CFOAT00100_request = None  # TR: 주식선물 주문 함수
     events = None
@@ -38,7 +42,6 @@ class Ebest:
     jango_sucess = True
 
     strategy_acc_no = {}
-
 
 # Ebest: Real
 class XR_event_handler:
@@ -58,7 +61,7 @@ class XR_event_handler:
 
         # 주식 체결
         elif code == "SC1":
-            accno = self.GetFieldData("OutBlock", "accno") # 계좌번호
+            accno = self.GetFieldData("OutBlock", "accno")  # 계좌번호
             ordno = self.GetFieldData("OutBlock", "ordno")  # 주문번호
             execqty = self.GetFieldData("OutBlock", "execqty")  # 체결수량
             execprc = self.GetFieldData("OutBlock", "execprc")  # 체결가격
@@ -68,7 +71,7 @@ class XR_event_handler:
             mnyexecamt = self.GetFieldData("OutBlock", "mnyexecamt")  # 현금체결금액 (신용체결금액도 있음) # 나중에 써보기
             bnstp = self.GetFieldData("OutBlock", "bnstp")  # 매매구분 (1:매도 , 2: 매수) , 주문구분이 체결에는 없는듯..?
             print("주문체결 SC1, 체결시간: %s, 주문번호: %s, 체결수량: %s, 체결가격: %s, 종목코드: %s" % (
-            exectime, ordno, execqty, execprc, shtnIsuno), flush=True)
+                exectime, ordno, execqty, execprc, shtnIsuno), flush=True)
 
             shtnIsuno = shtnIsuno[1:]
             fill_cost = int(execqty) * int(execprc)
@@ -78,10 +81,23 @@ class XR_event_handler:
             elif bnstp == "2":
                 direction = "BUY"
 
-            fill_event = FillEvent(datetime.datetime.utcnow(), accno,
+            # 계좌번호 보고 전략이름 설정 후 FillEvent 전달
+            strategy_id = None
+            for k, v in Ebest.strategy_acc_no.items():
+                if type(v) == list:
+                    if accno in v:
+                        strategy_id = k
+                elif type(v) == str:
+                    if v == accno:
+                        strategy_id = k
+                else:
+                    raise Exception("FillEvent Accno Unidentified!! @ ebest_exec")
+
+            fill_event = FillEvent(strategy_id, datetime.datetime.utcnow(), accno,
                                    shtnIsuno,
                                    'ebest',
-                                   int(execqty), direction, fill_cost, None, None)  # , event.est_fill_cost) 슬리피지 계산위해 고려해보기?
+                                   int(execqty), direction, fill_cost, None,
+                                   None)  # , event.est_fill_cost) 슬리피지 계산위해 고려해보기?
             Ebest.events.put(fill_event)
 
         # 선물주문정정취소 (보완 필요)
@@ -119,23 +135,35 @@ class XR_event_handler:
             print("FUTURES 주문체결 SC1, 체결시간: %s, 주문번호: %s, 체결수량: %s, 체결가격: %s, 종목코드: %s" % (
                 chetime, ordno, chevol, cheprice, expcode))
 
-            fill_cost = int(chevol) * int(cheprice)
+            fill_cost = int(chevol) * float(cheprice)
             direction = None
             if dosugb == "1":
                 direction = "SELL"
             elif dosugb == "2":
                 direction = "BUY"
 
-            shcode = expcode[3:-1] # 표준종목코드 12자리 -> 8자리 변환 ex) KR4111R20003 -> 111R2000
+            shcode = expcode[3:-1]  # 표준종목코드 12자리 -> 8자리 변환 ex) KR4111R20003 -> 111R2000
 
-            fill_event = FillEvent(datetime.datetime.utcnow(), accno,
-                                   shcode,
-                                   'ebest',
-                                   int(chevol), direction, fill_cost, None)  # , event.est_fill_cost) 슬리피지 계산위해 고려해보기?
+            # 계좌번호 보고 전략이름 설정 후 FillEvent 전달
+            strategy_id = None
+            for k, v in Ebest.strategy_acc_no.items():
+                if type(v) == list:
+                    if accno in v:
+                        strategy_id = k
+                elif type(v) == str:
+                    if v == accno:
+                        strategy_id = k
+                else:
+                    raise Exception("FillEvent Accno Unidentified!! @ ebest_exec")
+
+            fill_event = FillEvent(strategy_id, datetime.datetime.utcnow(), accno, shcode, 'ebest',
+                                   int(chevol), direction, fill_cost, None,
+                                   None)  # , event.est_fill_cost) 슬리피지 계산위해 고려해보기?
             Ebest.events.put(fill_event)
+            print(fill_event)
 
 
-# Ebest: TR
+# Ebest: TRa
 class XQ_event_handler:
 
     def OnReceiveData(self, code):
@@ -144,8 +172,8 @@ class XQ_event_handler:
         # TR: 잔고 조회
         if code == "t0424":
             cts_expcode = self.GetFieldData("t0424OutBlock", "cts_expcode", 0)
-            sunamt = self.GetFieldData("t0424OutBlock", "sunamt", 0) # 추정순자산
-            tappamt = self.GetFieldData("t0424OutBlock", "tappamt", 0) # 평가금액
+            sunamt = self.GetFieldData("t0424OutBlock", "sunamt", 0)  # 추정순자산
+            tappamt = self.GetFieldData("t0424OutBlock", "tappamt", 0)  # 평가금액
             occurs_count = self.GetBlockCount("t0424OutBlock1")
 
             # 빈 포트폴리오는 평가금액이 없음. 오류방지
@@ -160,7 +188,7 @@ class XQ_event_handler:
 
             est_cash = int(sunamt) - int(tappamt)
             Ebest.acc_balance["est_cash"] = est_cash
-            # jango_event = JangoEvent(est_cash=est_cash)
+            # jango_event = JangoEvent(strategy_id="ma", est_cash=est_cash) # hard coded!
             # Ebest.events.put(jango_event)
 
             for i in range(occurs_count):
@@ -178,7 +206,7 @@ class XQ_event_handler:
                 tt["종목구분"] = self.GetFieldData("t0424OutBlock1", "jonggb", i)
                 tt["수익률"] = float(self.GetFieldData("t0424OutBlock1", "sunikrt", i))
 
-                # jango_event = JangoEvent(strategy_id="ma", symbol=expcode, quantity=tt['잔고수량'], market_value=tt["평가금액"])
+                # jango_event = JangoEvent(strategy_id="ma", symbol=expcode, quantity=tt['잔고수량'], market_value=tt["평가금액"]) # hard coded!
                 # Ebest.events.put(jango_event)
 
             print("잔고내역 %s" % Ebest.acc_balance, flush=True)
@@ -190,8 +218,71 @@ class XQ_event_handler:
                 # 잔고 많이 만들어서 확인해보기?!
                 Ebest.tr_ok = True
 
+        elif code == "t0441":
+            cts_expcode = self.GetFieldData("t0441OutBlock", "cts_expcode", 0)
+            cts_medocd = self.GetFieldData("t0441OutBlock", "cts_expcode", 0)
+            tdtsunik = self.GetFieldData("t0441OutBlock", "tdtsunik", 0)  # 매매손익합계? 뭔지 확인하기/ 거래필요..!
+            tappamt = self.GetFieldData("t0441OutBlock", "tappamt", 0)  # 평가금액
+            occurs_count = self.GetBlockCount("t0441OutBlock1")
+            print("occurs_count: ", occurs_count)
+            # 빈 포트폴리오는 평가금액이 없음. 오류방지
+            if tappamt == '':
+                tappamt = 0
+
+            if tdtsunik == '':
+                Ebest.jango_sucess = False
+                tdtsunik = 0
+                print("@@@@@@@@@@@@@주신선물 매매손익합계 오류: 잔고 재요청...Debugging 필요@@@@@@@@@@@@@")
+                # raise Exception("설정한 계좌의 잔고가 없습니다 or 잔고요청 수신 실패")
+
+            for i in range(occurs_count):
+                expcode = self.GetFieldData("t0441OutBlock1", "expcode", i)
+                # 보유종목 없으면 expcode "" 반환함
+                if expcode == "" and occurs_count == 1:
+                    print("선물계좌 보유종목 없음 @ ebest_exec")
+                    continue
+
+                if expcode not in Ebest.fut_acc_balance.keys():
+                    Ebest.fut_acc_balance[expcode] = {}
+
+                tt = Ebest.fut_acc_balance[expcode]
+                tt["잔고수량"] = int(self.GetFieldData("t0441OutBlock1", "jqty", i))
+                tt["청산가능수량"] = int(self.GetFieldData("t0441OutBlock1", "cqty", i))
+                tt["평가금액"] = int(self.GetFieldData("t0441OutBlock1", "appamt", i))
+                tt["평균단가"] = float(self.GetFieldData("t0441OutBlock1", "pamt", i))
+                tt["수익률"] = float(self.GetFieldData("t0441OutBlock1", "sunikrt", i))
+                tt["구분"] = str(self.GetFieldData("t0441OutBlock1", "medosu", i))  # ['매수' , '매도']
+
+            print("주식선물 잔고내역 %s" % Ebest.fut_acc_balance)
+            if self.IsNext is True:  # 과거 데이터가 더 존재한다.
+                Ebest.t0441_request(cts_expcode=cts_expcode, next=self.IsNext)
+            elif self.IsNext is False:
+                print("주식선물 Total 잔고내역(IsNext 포함) %s" % Ebest.fut_acc_balance)
+                # 잔고 많이 만들어서 확인해보기?!
+                Ebest.tr_ok = True
+
+        elif code == "CFOEQ11100":
+            EvalDpsamtTotamt = self.GetFieldData("CFOEQ11100OutBlock2", "EvalDpsamtTotamt", 0)
+            FutsEvalAmt = self.GetFieldData("CFOEQ11100OutBlock2", "FutsEvalAmt", 0)
+
+            if int(EvalDpsamtTotamt) == 0:
+                Ebest.jango_sucess = False
+            else:
+                Ebest.fut_acc_balance["fut_est_cash"] = int(EvalDpsamtTotamt) - int(FutsEvalAmt)
+
+            if self.IsNext is True:  # 과거 데이터가 더 존재한다.
+                Ebest.CFOEQ11100_request(next=self.IsNext)
+            elif self.IsNext is False:
+                print("주식선물 평가예탁금총액: %s 선물평가금액: %s" % (EvalDpsamtTotamt, FutsEvalAmt))
+                # 잔고 많이 만들어서 확인해보기?!
+                Ebest.tr_ok = True
+
     def OnReceiveMessage(self, systemError, messageCode, message):
-        print("주식잔고조회 TR systemError: %s, messageCode: %s, message: %s" % (systemError, messageCode, message))
+        print("주식&선물 잔고조회 TR systemError: %s, messageCode: %s, message: %s" % (systemError, messageCode, message))
+        if int(messageCode) == -9:
+            raise Exception("해당 계좌가 없습니다!! 계좌번호 확인하기 @ ebest_exec")
+        if int(messageCode) < 0:
+            raise Exception("Error 발생 수정필요! @ ebest_exec")
 
 
 # Ebest: Login
@@ -224,26 +315,82 @@ class EbestExec:
         while Ebest.login_ok is False:
             pythoncom.PumpWaitingMessages()
 
-        # 잔고: TR
+        # 주식 잔고: TR
         for strategy_name, acc_no in Ebest.strategy_acc_no.items():
+            if type(acc_no) == list:
+                stock_acc_no = acc_no[0]
+                fut_acc_no = acc_no[1]
+            elif type(acc_no) == str:
+                stock_acc_no = acc_no
+                fut_acc_no = None
+            else:
+                stock_acc_no = None
+                fut_acc_no = None
+
             Ebest.tr_event = win32com.client.DispatchWithEvents("XA_DataSet.XAQuery", XQ_event_handler)
             Ebest.tr_event.ResFileName = "C:/eBEST/xingAPI/Res/t0424.res"
             Ebest.t0424_request = self.t0424_request
             Ebest.acc_balance = {}
-            Ebest.t0424_request(cts_expcode="", next=False, acc_no=acc_no)
+            Ebest.t0424_request(cts_expcode="", next=False, acc_no=stock_acc_no, acc_pw=Ebest.credentials["acc_pw"])
 
-            if Ebest.jango_sucess is False:
+            # 잔고 요청 실패시 재요청
+            while Ebest.jango_sucess is False:
+                print("#### 주식 : 잔고 요청 실패 재요청중...####")
+                Ebest.jango_sucess = True
                 time.sleep(1)
-                Ebest.t0424_request(cts_expcode="", next=False, acc_no=acc_no)
+                Ebest.t0424_request(cts_expcode="", next=False, acc_no=stock_acc_no, acc_pw=Ebest.credentials["acc_pw"])
 
+            ######### 주식 선물 잔고 요청 추가 하기 #################
+            Ebest.tr_event = win32com.client.DispatchWithEvents("XA_DataSet.XAQuery", XQ_event_handler)
+            Ebest.tr_event.ResFileName = "C:/eBEST/xingAPI/Res/t0441.res"
+            Ebest.t0441_request = self.t0441_request
+            Ebest.fut_acc_balance = {}
+            Ebest.t0441_request(cts_expcode="", next=False, acc_no=fut_acc_no, acc_pw=Ebest.credentials["acc_pw"])
 
-            for k, v in Ebest.acc_balance.items():
+            # 잔고 요청 실패시 재요청
+            while Ebest.jango_sucess is False:
+                print("#### 주식선물 : 잔고 요청 실패 재요청중...####")
+                Ebest.jango_sucess = True
+                time.sleep(1)
+                Ebest.t0441_request(cts_expcode="", next=False, acc_no=fut_acc_no, acc_pw=Ebest.credentials["acc_pw"])
+            ######################################################
+
+            ######### 주식 선물 잔고 요청 추가 하기 #################
+            Ebest.tr_event = win32com.client.DispatchWithEvents("XA_DataSet.XAQuery", XQ_event_handler)
+            Ebest.tr_event.ResFileName = "C:/eBEST/xingAPI/Res/CFOEQ11100.res"
+            Ebest.CFOEQ11100_request = self.CFOEQ11100_request
+            date = datetime.datetime.now().strftime("%Y%m%d")
+            Ebest.CFOEQ11100_request(next=False, acc_no=fut_acc_no, acc_pw=Ebest.credentials["acc_pw"], BnsDt=date)
+
+            # 잔고 요청 실패시 재요청
+            while Ebest.jango_sucess is False:
+                print("#### 주식선물 : 평가예탁총액 요청 실패 재요청중...####")
+                Ebest.jango_sucess = True
+                time.sleep(1)
+                date = datetime.datetime.now().strftime("%Y%m%d")
+                Ebest.CFOEQ11100_request(next=False, acc_no=fut_acc_no, acc_pw=Ebest.credentials["acc_pw"],
+                                         BnsDt=date)
+
+            # fut_val = 0
+            # for k, v in Ebest.fut_acc_balance.items():
+            #     fut_val += abs(v['평가금액'])
+            # Ebest.fut_acc_balance["fut_est_cash"] = Ebest.fut_total_value - fut_val
+            ######################################################
+
+            # 잔고 event 큐로 전달
+            Ebest.total_acc_balance = {**Ebest.acc_balance, **Ebest.fut_acc_balance}
+            print("Acc_dict:", Ebest.total_acc_balance)
+            for k, v in Ebest.total_acc_balance.items():
                 if k == "est_cash":
-                    jango_event = JangoEvent(strategy_id=strategy_name, est_cash=Ebest.acc_balance["est_cash"])
+                    jango_event = JangoEvent(strategy_id=strategy_name, est_cash=Ebest.total_acc_balance[k])
+                    Ebest.events.put(jango_event)
+                elif k == "fut_est_cash":
+                    jango_event = JangoEvent(strategy_id=strategy_name, fut_est_cash=Ebest.total_acc_balance[k])
                     Ebest.events.put(jango_event)
                 else:
                     jango_event = JangoEvent(strategy_id=strategy_name, symbol=k,
-                                             quantity=Ebest.acc_balance[k]["잔고수량"], market_value=Ebest.acc_balance[k]["평가금액"])
+                                             quantity=Ebest.total_acc_balance[k]["잔고수량"],
+                                             market_value=Ebest.total_acc_balance[k]["평가금액"])
                     Ebest.events.put(jango_event)
 
             time.sleep(1)
@@ -296,18 +443,50 @@ class EbestExec:
         pythoncom.CoUninitialize()
         # threading.Thread(target=self.start_real_events).join()
 
-    def t0424_request(self, cts_expcode=None, next=None, acc_no=None):
+    def t0424_request(self, cts_expcode=None, next=None, acc_no=None, acc_pw=None):
         # 주식 잔고
         Ebest.tr_event = win32com.client.DispatchWithEvents("XA_DataSet.XAQuery", XQ_event_handler)
 
         Ebest.tr_event.ResFileName = "C:/eBEST/xingAPI/Res/t0424.res"
         Ebest.tr_event.SetFieldData("t0424InBlock", "accno", 0, acc_no)
-        Ebest.tr_event.SetFieldData("t0424InBlock", "passwd", 0, Ebest.acc_pw)
+        Ebest.tr_event.SetFieldData("t0424InBlock", "passwd", 0, acc_pw)
         Ebest.tr_event.SetFieldData("t0424InBlock", "prcgb", 0, "1")
         Ebest.tr_event.SetFieldData("t0424InBlock", "chegb", 0, "2")
         Ebest.tr_event.SetFieldData("t0424InBlock", "dangb", 0, "0")
         Ebest.tr_event.SetFieldData("t0424InBlock", "charge", 0, "0")  # 제비용 포함여부 0: 미포함, 1: 포함
         Ebest.tr_event.SetFieldData("t0424InBlock", "cts_expcode", 0, "")
+
+        Ebest.tr_event.Request(next)
+
+        Ebest.tr_ok = False
+        while Ebest.tr_ok is False:
+            pythoncom.PumpWaitingMessages()
+
+    def t0441_request(self, cts_expcode=None, next=None, acc_no=None, acc_pw=None):
+        # 주식선물 잔고
+        Ebest.tr_event = win32com.client.DispatchWithEvents("XA_DataSet.XAQuery", XQ_event_handler)
+
+        Ebest.tr_event.ResFileName = "C:/eBEST/xingAPI/Res/t0441.res"
+        Ebest.tr_event.SetFieldData("t0441InBlock", "accno", 0, acc_no)
+        Ebest.tr_event.SetFieldData("t0441InBlock", "passwd", 0, acc_pw)  # Hard Coded?
+        Ebest.tr_event.SetFieldData("t0441InBlock", "cts_expcode", 0, "")
+        Ebest.tr_event.SetFieldData("t0441InBlock", "cts_medocd", 0, "")
+
+        Ebest.tr_event.Request(next)
+
+        Ebest.tr_ok = False
+        while Ebest.tr_ok is False:
+            pythoncom.PumpWaitingMessages()
+
+    # 주식선물옵션가정산예탁금상세
+    def CFOEQ11100_request(self, next=None, acc_no=None, acc_pw=None, BnsDt=""):
+        Ebest.tr_event = win32com.client.DispatchWithEvents("XA_DataSet.XAQuery", XQ_event_handler)
+
+        Ebest.tr_event.ResFileName = "C:/eBEST/xingAPI/Res/CFOEQ11100.res"
+        Ebest.tr_event.SetFieldData("CFOEQ11100InBlock1", "AcntNo", 0, acc_no)
+        Ebest.tr_event.SetFieldData("CFOEQ11100InBlock1", "Pwd", 0, acc_pw)
+        Ebest.tr_event.SetFieldData("CFOEQ11100InBlock1", "RecCnt", 0, "")
+        Ebest.tr_event.SetFieldData("CFOEQ11100InBlock1", "BnsDt", 0, BnsDt)
 
         Ebest.tr_event.Request(next)
 
